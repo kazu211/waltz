@@ -1,0 +1,43 @@
+name: Deploy GAS API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'shared/**'
+
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup clasp credentials
+        run: |
+          echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+
+      - name: Setup clasp project
+        run: |
+          echo '{"scriptId":"${{ secrets.GAS_SCRIPT_ID }}","rootDir":"src"}' > api/.clasp.json
+
+      - name: Copy shared types to api/src
+        run: cp shared/types.ts api/src/types.ts
+
+      - name: Push to GAS
+        run: cd api && npx clasp push --force
+
+      - name: Deploy
+        run: cd api && npx clasp deploy -i ${{ secrets.GAS_DEPLOYMENT_ID }} -d "Auto deploy from GitHub Actions"
