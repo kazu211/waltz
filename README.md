@@ -20,8 +20,8 @@
 waltz/
 ├── api/                    ← GASバックエンド
 │   ├── src/
-│   │   └── main.ts         ← APIメインコード
-│   ├── appsscript.json     ← GASプロジェクト設定
+│   │   ├── main.ts         ← APIメインコード
+│   │   └── appsscript.json ← GASプロジェクト設定
 │   ├── tsconfig.json
 │   └── .clasp.json.example ← clasp設定テンプレート
 ├── app/                    ← Reactフロントエンド（Phase 4以降）
@@ -298,36 +298,54 @@ clasp login
 
 ブラウザが開くのでGoogleアカウントでログインする。
 
-### 3. GASプロジェクト作成
+### 3. Google スプレッドシートの作成
+
+1. [Google Drive](https://drive.google.com/) で新しい Google スプレッドシートを作成する
+2. スプレッドシート名を「Waltz」など任意の名前に設定する
+3. URL からスプレッドシート ID を控えておく
+
+   ```
+   https://docs.google.com/spreadsheets/d/<SPREADSHEET_ID>/edit
+   ```
+
+> **重要**: 本プロジェクトのコードは `SpreadsheetApp.getActiveSpreadsheet()` を使用しているため、GAS プロジェクトはスプレッドシートにバインド（コンテナバインドスクリプト）する必要があります。
+
+### 4. GAS プロジェクト作成（コンテナバインド）
 
 ```bash
 cd api
-clasp create --type webapp --title "Waltz API"
+clasp create --parentId <SPREADSHEET_ID> --title "Waltz API"
 ```
 
 これにより `.clasp.json` が生成され、`scriptId` が設定される。
 
-### 4. スプレッドシートの紐付け
+生成された `.clasp.json` に `rootDir` を追加する：
 
-1. [Google Apps Script](https://script.google.com/) でプロジェクトを開く
-   ```bash
-   clasp open
-   ```
-2. エディタ左メニューの「プロジェクトの設定」を開く
-3. 新しいスプレッドシートを作成し、そのスプレッドシートを GAS プロジェクトのコンテナにバインドする
-   - または、スクリプト内で `SpreadsheetApp.getActiveSpreadsheet()` の代わりに `SpreadsheetApp.openById('SPREADSHEET_ID')` を使用する
+```json
+{
+  "scriptId": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "rootDir": "src"
+}
+```
 
-> **注意**: `SpreadsheetApp.getActiveSpreadsheet()` はスプレッドシートにバインドされたスクリプトでのみ動作します。スタンドアロンスクリプトの場合は `openById()` を使用してください。
+> **注意**: `--type webapp` ではなく `--parentId` を使用してください。`--type webapp` はスタンドアロンスクリプトを作成するため、`getActiveSpreadsheet()` が動作しません。
 
 ### 5. 初回デプロイ
 
+プロジェクトルートに戻り、以下のコマンドを実行する：
+
 ```bash
-# GASにコードをプッシュ
-clasp push
+cd ..
+
+# GASにコードをプッシュ（共有型定義のコピー + clasp push）
+npm run api:push
 
 # Webアプリとしてデプロイ
+cd api
 clasp deploy
 ```
+
+> **注意**: `api/` ディレクトリには `package.json` がないため、`api/` 内で直接 `npx clasp push` を実行するとエラーになります。必ずプロジェクトルートから `npm run api:push` を使用してください。
 
 出力される **Deployment ID** をメモしておく。以降のデプロイではこのIDを使用する：
 
