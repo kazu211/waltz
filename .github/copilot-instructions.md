@@ -51,12 +51,18 @@ waltz/
 npm run api:push
 ```
 
-> `api/` ディレクトリに `package.json` はありません。`api/` 内で直接 `npx` コマンドを実行しないでください。
+> `api/` 内で直接 `npx clasp` コマンドを実行しないでください。必ずルートディレクトリから `npm run api:*` を使用してください。
 
-### デプロイ
+### 利用可能な npm scripts
 
-- `main` ブランチへのプッシュで GitHub Actions が自動デプロイ
-- 手動: `npm run api:deploy`（要 `DEPLOYMENT_ID` 環境変数）
+| コマンド | 用途 |
+|---|---|
+| `npm run api:login` | clasp ログイン |
+| `npm run api:push` | 共有型定義のコピー + GAS にプッシュ |
+| `npm run api:deploy` | コードプッシュ + デプロイ（Deployment ID 自動取得） |
+| `npm run api:deployments` | デプロイ一覧を表示 |
+| `npm run api:open` | GAS エディタを開く |
+| `npm run api:logs` | GAS ログを表示 |
 
 ## コーディング規約
 

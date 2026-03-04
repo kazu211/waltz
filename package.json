@@ -5,8 +5,10 @@
   "private": true,
   "scripts": {
     "api:copy-types": "cp shared/types.ts api/src/types.ts || copy shared\\types.ts api\\src\\types.ts",
-    "api:push": "npm run api:copy-types && cd api && npx clasp push",
-    "api:deploy": "npm run api:copy-types && cd api && npx clasp push && npx clasp deploy -i $DEPLOYMENT_ID",
+    "api:login": "npx clasp login",
+    "api:push": "npm run api:copy-types && cd api && npx clasp push --force",
+    "api:deploy": "npm run api:push && node api/scripts/deploy.js",
+    "api:deployments": "cd api && npx clasp deployments",
     "api:open": "cd api && npx clasp open",
     "api:logs": "cd api && npx clasp logs"
   },

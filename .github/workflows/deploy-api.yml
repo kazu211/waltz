@@ -37,7 +37,7 @@ jobs:
         run: cp shared/types.ts api/src/types.ts
 
       - name: Push to GAS
-        run: cd api && npx clasp push --force
+        run: npm run api:push
 
       - name: Deploy
-        run: cd api && npx clasp deploy -i ${{ secrets.GAS_DEPLOYMENT_ID }} -d "Auto deploy from GitHub Actions"
+        run: node api/scripts/deploy.js

@@ -8,7 +8,7 @@
 
 - エントリーポイント: `api/src/main.ts` の `doPost()` 関数
 - ルーティング: クエリパラメータ `action` で操作を切り分け
-- データアクセス: `SpreadsheetApp.getActiveSpreadsheet()` でコンテナバインドされたスプレッドシートを取得
+- データアクセス: `SpreadsheetApp.getActiveSpreadsheet()` でスプレッドシートを取得
 - レスポンス: `ContentService.createTextOutput()` で JSON を返却
 
 ## GAS 固有の制約
@@ -38,6 +38,6 @@
 
 ## clasp 操作
 
-- コードのプッシュはプロジェクトルートから `npm run api:push` を使用
-- `api/` 内で `npx clasp push` を直接実行しない（`package.json` がないためエラーになる）
+- すべての clasp 操作はプロジェクトルートから `npm run api:*` を使用する
+- `api/` 内で `npx clasp` を直接実行しない
 - `.clasp.json` は `.gitignore` で除外済み。`api/.clasp.json.example` をコピーして作成

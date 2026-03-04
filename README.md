@@ -22,6 +22,8 @@ waltz/
 │   ├── src/
 │   │   ├── main.ts         ← APIメインコード
 │   │   └── appsscript.json ← GASプロジェクト設定
+│   ├── scripts/
+│   │   └── deploy.js       ← デプロイスクリプト
 │   ├── tsconfig.json
 │   └── .clasp.json.example ← clasp設定テンプレート
 ├── app/                    ← Reactフロントエンド（Phase 4以降）
@@ -280,7 +282,6 @@ waltz/
 - Node.js 20以上
 - npm
 - Google アカウント
-- clasp のグローバルインストール（`npm install -g @google/clasp`）
 
 ### 1. リポジトリのクローン
 
@@ -293,7 +294,7 @@ npm install
 ### 2. clasp ログイン
 
 ```bash
-clasp login
+npm run api:login
 ```
 
 ブラウザが開くのでGoogleアカウントでログインする。
@@ -301,34 +302,26 @@ clasp login
 ### 3. Google スプレッドシートの作成
 
 1. [Google Drive](https://drive.google.com/) で新しい Google スプレッドシートを作成する
-2. スプレッドシート名を「Waltz」など任意の名前に設定する
-3. URL からスプレッドシート ID を控えておく
+2. スプレッドシート名を「Waltz」に設定する
 
+### 4. GAS プロジェクト作成
+
+1. 作成したスプレッドシートを開き、メニューの「拡張機能」→「Apps Script」を選択する
+2. GAS エディタが開いたら、左メニューの「プロジェクトの設定」（⚙）を選択する
+3. 「スクリプト ID」をコピーする
+4. プロジェクトの `api/.clasp.json.example` をコピーして `api/.clasp.json` を作成し、Script ID を設定する
+
+   ```bash
+   cd api
+   cp .clasp.json.example .clasp.json
    ```
-   https://docs.google.com/spreadsheets/d/<SPREADSHEET_ID>/edit
+
+   ```json
+   {
+     "scriptId": "コピーしたスクリプトID",
+     "rootDir": "src"
+   }
    ```
-
-> **重要**: 本プロジェクトのコードは `SpreadsheetApp.getActiveSpreadsheet()` を使用しているため、GAS プロジェクトはスプレッドシートにバインド（コンテナバインドスクリプト）する必要があります。
-
-### 4. GAS プロジェクト作成（コンテナバインド）
-
-```bash
-cd api
-clasp create --parentId <SPREADSHEET_ID> --title "Waltz API"
-```
-
-これにより `.clasp.json` が生成され、`scriptId` が設定される。
-
-生成された `.clasp.json` に `rootDir` を追加する：
-
-```json
-{
-  "scriptId": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-  "rootDir": "src"
-}
-```
-
-> **注意**: `--type webapp` ではなく `--parentId` を使用してください。`--type webapp` はスタンドアロンスクリプトを作成するため、`getActiveSpreadsheet()` が動作しません。
 
 ### 5. 初回デプロイ
 
@@ -337,29 +330,35 @@ clasp create --parentId <SPREADSHEET_ID> --title "Waltz API"
 ```bash
 cd ..
 
-# GASにコードをプッシュ（共有型定義のコピー + clasp push）
-npm run api:push
-
-# Webアプリとしてデプロイ
-cd api
-clasp deploy
+# GAS にコードをプッシュ + Web アプリとしてデプロイ
+npm run api:deploy
 ```
 
-> **注意**: `api/` ディレクトリには `package.json` がないため、`api/` 内で直接 `npx clasp push` を実行するとエラーになります。必ずプロジェクトルートから `npm run api:push` を使用してください。
+初回は新規デプロイが作成され、2回目以降は同じ Deployment ID で再デプロイされる（URL が変わらない）。
 
-出力される **Deployment ID** をメモしておく。以降のデプロイではこのIDを使用する：
+Deployment ID は以下のコマンドで確認できる：
 
 ```bash
-clasp deploy -i <DEPLOYMENT_ID>
+npm run api:deployments
 ```
 
-### 6. スプレッドシートの確認
+### 6. 動作確認
 
-初回のAPIリクエスト時に「家計簿」シートとヘッダー行が自動作成されます。手動で作成する場合は以下のヘッダーを1行目に設定：
+初回の API リクエスト時に「家計簿」シートとヘッダー行が自動作成される。`npm run api:deployments` で確認した Deployment ID を使い、以下のコマンドで動作を確認する：
 
+```bash
+curl -L -X POST "https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec?action=list" \
+  -H "Content-Type: application/json" \
+  -d '{}'
 ```
-id | date | type | parentCategory | childCategory | storeName | persons | amount | memo
+
+正常に動作していれば以下のレスポンスが返る：
+
+```json
+{"success":true,"data":[]}
 ```
+
+スプレッドシートに「家計簿」シートが作成され、ヘッダー行が自動設定されていることを確認する。
 
 ---
 
@@ -373,7 +372,6 @@ id | date | type | parentCategory | childCategory | storeName | persons | amount
 |---|---|
 | `CLASPRC_JSON` | `~/.clasprc.json` の内容（clasp login後に生成される認証情報） |
 | `GAS_SCRIPT_ID` | GASプロジェクトの Script ID |
-| `GAS_DEPLOYMENT_ID` | 初回デプロイで取得した Deployment ID |
 
 ### `CLASPRC_JSON` の取得方法
 
@@ -394,11 +392,12 @@ type %USERPROFILE%\.clasprc.json
 
 ## デプロイ方式
 
-**Deployment ID 固定方式**を採用。初回デプロイで取得したIDを使い回すことで、APIのURLが変わらない。
+**Deployment ID 固定方式**を採用。`scripts/deploy.js` が `clasp deployments` から最新の Deployment ID を自動取得し、同じ ID で再デプロイすることで API の URL が変わらない。
 
 - API URL: `https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec`
-- 初回: `clasp deploy` → Deployment ID を取得
-- 以降: `clasp deploy -i <DEPLOYMENT_ID>` → 同じURLで最新コードに更新
+- 初回: 新規デプロイを作成
+- 以降: 既存の Deployment ID で再デプロイ（URL 不変）
+- コマンド: `npm run api:deploy`（初回・以降を自動判定）
 
 ---
 
