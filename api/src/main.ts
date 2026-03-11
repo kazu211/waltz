@@ -11,7 +11,7 @@ const HEADERS: (keyof KakeiboRecord)[] = [
   'storeName', 'persons', 'amount', 'memo'
 ];
 const CATEGORY_HEADERS: (keyof CategoryRecord)[] = [
-  'id', 'parentCategory', 'childCategory'
+  'id', 'type', 'parentCategory', 'childCategory'
 ];
 const MEMBER_HEADERS: (keyof MemberRecord)[] = [
   'id', 'name'
@@ -222,8 +222,9 @@ function handleCategoryList(): ApiResponse<CategoryRecord[]> {
   const rows = sheet.getRange(2, 1, lastRow - 1, CATEGORY_HEADERS.length).getValues();
   const categories: CategoryRecord[] = rows.map(row => ({
     id: String(row[0]),
-    parentCategory: String(row[1]),
-    childCategory: String(row[2]),
+    type: String(row[1]) as TransactionType,
+    parentCategory: String(row[2]),
+    childCategory: String(row[3]),
   }));
 
   return { success: true, data: categories };

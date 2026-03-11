@@ -41,6 +41,7 @@ interface ApiResponse<T = unknown> {
 /** カテゴリレコード */
 interface CategoryRecord {
   id: string;
+  type: TransactionType;
   parentCategory: string;
   childCategory: string;
 }

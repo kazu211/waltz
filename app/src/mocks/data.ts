@@ -8,18 +8,18 @@ import type {
 } from '../types';
 
 export const mockCategories: CategoryRecord[] = [
-  { id: '1', parentCategory: '食費', childCategory: '外食' },
-  { id: '2', parentCategory: '食費', childCategory: '自炊' },
-  { id: '3', parentCategory: '食費', childCategory: 'カフェ' },
-  { id: '4', parentCategory: '交通費', childCategory: '電車' },
-  { id: '5', parentCategory: '交通費', childCategory: 'バス' },
-  { id: '6', parentCategory: '住居費', childCategory: '家賃' },
-  { id: '7', parentCategory: '住居費', childCategory: '光熱費' },
-  { id: '8', parentCategory: '日用品', childCategory: '' },
-  { id: '9', parentCategory: '娯楽', childCategory: '' },
-  { id: '10', parentCategory: '通信費', childCategory: '' },
-  { id: '11', parentCategory: '給与', childCategory: '' },
-  { id: '12', parentCategory: '副収入', childCategory: '' },
+  { id: '1', type: 'expense', parentCategory: '食費', childCategory: '外食' },
+  { id: '2', type: 'expense', parentCategory: '食費', childCategory: '自炊' },
+  { id: '3', type: 'expense', parentCategory: '食費', childCategory: 'カフェ' },
+  { id: '4', type: 'expense', parentCategory: '交通費', childCategory: '電車' },
+  { id: '5', type: 'expense', parentCategory: '交通費', childCategory: 'バス' },
+  { id: '6', type: 'expense', parentCategory: '住居費', childCategory: '家賃' },
+  { id: '7', type: 'expense', parentCategory: '住居費', childCategory: '光熱費' },
+  { id: '8', type: 'expense', parentCategory: '日用品', childCategory: '' },
+  { id: '9', type: 'expense', parentCategory: '娯楽', childCategory: '' },
+  { id: '10', type: 'expense', parentCategory: '通信費', childCategory: '' },
+  { id: '11', type: 'income', parentCategory: '給与', childCategory: '' },
+  { id: '12', type: 'income', parentCategory: '副収入', childCategory: '' },
 ];
 
 export const mockMembers: MemberRecord[] = [

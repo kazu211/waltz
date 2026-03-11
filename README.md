@@ -104,10 +104,14 @@ waltz/
 - HashRouter による GitHub Pages SPA 対応
 - GitHub Pages デプロイ設定
 
-### Phase 5: フロントエンド - メイン画面
+### Phase 5: フロントエンド - メイン画面 ✅
 
 - 月次一覧画面（データの参照・追加・編集・削除）
-- ダッシュボード画面（今月のサマリー）
+  - 月ナビゲーション（前月/翌月切替）
+  - 月間サマリー（収入・支出・収支）
+  - デスクトップ: テーブル表示 / モバイル: カード表示
+  - 作成・編集モーダル（カテゴリ選択、メンバー選択対応）
+  - 削除確認ダイアログ
 
 ### Phase 6: フロントエンド - グラフ・管理画面
 
@@ -142,8 +146,9 @@ waltz/
 | 列 | フィールド | 説明 |
 |---|---|---|
 | A | id | UUID（任意の一意な文字列） |
-| B | parentCategory | 親カテゴリ名（例: 食費、交通費） |
-| C | childCategory | 子カテゴリ名（例: 外食、電車。空欄可） |
+| B | type | `income`（収入）/ `expense`（支出） |
+| C | parentCategory | 親カテゴリ名（例: 食費、交通費） |
+| D | childCategory | 子カテゴリ名（例: 外食、電車。空欄可） |
 
 ### シート: メンバー（手動作成）
 
@@ -289,11 +294,13 @@ waltz/
   "data": [
     {
       "id": "...",
+      "type": "expense",
       "parentCategory": "食費",
       "childCategory": "外食"
     },
     {
       "id": "...",
+      "type": "expense",
       "parentCategory": "食費",
       "childCategory": "自炊"
     }
@@ -487,7 +494,7 @@ npm run api:login
 | シート名 | ヘッダー（1行目） | 備考 |
 |---|---|---|
 | 家計簿 | `id` `date` `type` `parentCategory` `childCategory` `storeName` `persons` `amount` `memo` | 必須 |
-| カテゴリ | `id` `parentCategory` `childCategory` | 任意（カテゴリ一覧APIを使う場合） |
+| カテゴリ | `id` `type` `parentCategory` `childCategory` | 任意（カテゴリ一覧APIを使う場合） |
 | メンバー | `id` `name` | 任意（メンバー一覧APIを使う場合） |
 
 ### 6. 初回デプロイ
