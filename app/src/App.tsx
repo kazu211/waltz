@@ -6,6 +6,7 @@ import DashboardPage from './pages/DashboardPage';
 import MonthlyListPage from './pages/MonthlyListPage';
 import MonthlyChartPage from './pages/MonthlyChartPage';
 import AnnualTrendPage from './pages/AnnualTrendPage';
+import MonthComparePage from './pages/MonthComparePage';
 import SettingsPage from './pages/SettingsPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="monthly" element={<MonthlyListPage />} />
           <Route path="chart" element={<MonthlyChartPage />} />
           <Route path="trend" element={<AnnualTrendPage />} />
+          <Route path="compare" element={<MonthComparePage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>

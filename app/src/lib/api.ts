@@ -141,6 +141,27 @@ export const api = {
     return request<MonthlyTrendResponse>('monthlyTrend', { year });
   },
 
+  /** カテゴリ別の年次推移（12ヶ月分の summaryByCategory を集約） */
+  async categoryMonthlyTrend(year: number, type: TransactionType): Promise<{
+    months: { month: number; categories: { parentCategory: string; amount: number }[] }[];
+  }> {
+    const results = await Promise.all(
+      Array.from({ length: 12 }, (_, i) => this.summaryByCategory(year, i + 1, type)),
+    );
+    return {
+      months: results.map((r, i) => {
+        const map: Record<string, number> = {};
+        for (const c of r.categories) {
+          map[c.parentCategory] = (map[c.parentCategory] ?? 0) + c.amount;
+        }
+        return {
+          month: i + 1,
+          categories: Object.entries(map).map(([parentCategory, amount]) => ({ parentCategory, amount })),
+        };
+      }),
+    };
+  },
+
   // メンバー
   async memberList(): Promise<MemberRecord[]> {
     if (USE_MOCK) return mockMembers;

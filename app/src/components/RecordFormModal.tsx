@@ -45,7 +45,7 @@ export default function RecordFormModal({ record, categories, members, onSave, o
 
   // 選択中の親カテゴリに属する子カテゴリ一覧
   const childCategories = filteredCategories
-    .filter(c => c.parentCategory === parentCategory && c.childCategory !== '')
+    .filter(c => c.parentCategory === parentCategory)
     .map(c => c.childCategory);
 
   // 親カテゴリ変更時に子カテゴリをリセット
@@ -73,6 +73,7 @@ export default function RecordFormModal({ record, categories, members, onSave, o
 
     if (!date) { setError('日付を入力してください'); return; }
     if (!parentCategory) { setError('親カテゴリを選択してください'); return; }
+    if (!childCategory) { setError('子カテゴリを選択してください'); return; }
     const amountNum = Number(amount);
     if (!amount || isNaN(amountNum) || amountNum < 0) { setError('金額を正しく入力してください'); return; }
 
@@ -156,13 +157,13 @@ export default function RecordFormModal({ record, categories, members, onSave, o
           {/* 子カテゴリ */}
           {childCategories.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">子カテゴリ</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">子カテゴリ *</label>
               <select
                 value={childCategory}
                 onChange={e => setChildCategory(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="">なし</option>
+                <option value="">選択してください</option>
                 {childCategories.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
