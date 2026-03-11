@@ -101,8 +101,15 @@ interface MonthlyTrendResponse {
   months: MonthlyTrendItem[];
 }
 
+/** メンバーレコード */
+interface MemberRecord {
+  id: string;
+  name: string;
+}
+
 /** アクション種別 */
 type ActionType =
   | 'create' | 'update' | 'delete' | 'list'
   | 'categoryList'
-  | 'summary' | 'summaryByCategory' | 'monthlyTrend';
+  | 'summary' | 'summaryByCategory' | 'monthlyTrend'
+  | 'memberList';

@@ -5,12 +5,16 @@
 
 const SHEET_NAME = '家計簿';
 const CATEGORY_SHEET_NAME = 'カテゴリ';
+const MEMBER_SHEET_NAME = 'メンバー';
 const HEADERS: (keyof KakeiboRecord)[] = [
   'id', 'date', 'type', 'parentCategory', 'childCategory',
   'storeName', 'persons', 'amount', 'memo'
 ];
 const CATEGORY_HEADERS: (keyof CategoryRecord)[] = [
   'id', 'parentCategory', 'childCategory'
+];
+const MEMBER_HEADERS: (keyof MemberRecord)[] = [
+  'id', 'name'
 ];
 
 // =============================================================================
@@ -21,6 +25,12 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
   try {
     const action = e.parameter.action as ActionType | undefined;
     const body = e.postData?.contents ? JSON.parse(e.postData.contents) : {};
+
+    // 認証チェック
+    const authError = authenticate(body.apiKey);
+    if (authError) {
+      return jsonResponse({ success: false, error: authError });
+    }
 
     let result: ApiResponse;
 
@@ -49,6 +59,9 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
       case 'monthlyTrend':
         result = handleMonthlyTrend(body);
         break;
+      case 'memberList':
+        result = handleMemberList();
+        break;
       default:
         result = { success: false, error: `不明なアクション: ${action}` };
     }
@@ -58,6 +71,29 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
     const message = error instanceof Error ? error.message : '予期しないエラーが発生しました';
     return jsonResponse({ success: false, error: message });
   }
+}
+
+// =============================================================================
+// 認証
+// =============================================================================
+
+function authenticate(apiKey: string | undefined): string | null {
+  const storedKey = PropertiesService.getScriptProperties().getProperty('API_KEY');
+
+  if (!storedKey) {
+    // API_KEY が未設定の場合は認証をスキップ（初期セットアップ用）
+    return null;
+  }
+
+  if (!apiKey) {
+    return '認証エラー: apiKey が指定されていません';
+  }
+
+  if (apiKey !== storedKey) {
+    return '認証エラー: apiKey が正しくありません';
+  }
+
+  return null;
 }
 
 // =============================================================================
@@ -303,6 +339,30 @@ function handleMonthlyTrend(body: MonthlyTrendRequest): ApiResponse<MonthlyTrend
 }
 
 // =============================================================================
+// メンバーハンドラー
+// =============================================================================
+
+function handleMemberList(): ApiResponse<MemberRecord[]> {
+  const sheet = getMemberSheet();
+  if (!sheet) {
+    return { success: true, data: [] };
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    return { success: true, data: [] };
+  }
+
+  const rows = sheet.getRange(2, 1, lastRow - 1, MEMBER_HEADERS.length).getValues();
+  const members: MemberRecord[] = rows.map(row => ({
+    id: String(row[0]),
+    name: String(row[1]),
+  }));
+
+  return { success: true, data: members };
+}
+
+// =============================================================================
 // バリデーション
 // =============================================================================
 
@@ -349,6 +409,11 @@ function getSheet(): GoogleAppsScript.Spreadsheet.Sheet {
 function getCategorySheet(): GoogleAppsScript.Spreadsheet.Sheet | null {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   return ss.getSheetByName(CATEGORY_SHEET_NAME);
+}
+
+function getMemberSheet(): GoogleAppsScript.Spreadsheet.Sheet | null {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  return ss.getSheetByName(MEMBER_SHEET_NAME);
 }
 
 function getRecordsByMonth(year: number, month: number): KakeiboRecord[] {

@@ -72,11 +72,15 @@ waltz/
   - `action=summaryByCategory` → カテゴリ別集計（円グラフ用）
   - `action=monthlyTrend` → 月次推移（年間の月別合計、折れ線グラフ用）
 
-### Phase 3: 認証 + メンバー管理（バックエンド）
+### Phase 3: 認証 + メンバー管理（バックエンド）✅
 
-- APIキー or トークンによるアクセス制御
-- メンバー管理API
-  - `action=memberList` / `memberCreate` / `memberDelete`
+- **API Key 認証**
+  - リクエスト body の `apiKey` フィールドで認証
+  - GAS の Script Properties に `API_KEY` を設定
+  - `API_KEY` 未設定時は認証スキップ（初期セットアップ用）
+- **メンバー管理**
+  - 別シート「メンバー」で管理（スプレッドシートで直接編集）
+  - `action=memberList` で一覧取得（読み取り専用）
 
 ### Phase 4: フロントエンド基盤 + ログイン
 
@@ -127,11 +131,13 @@ waltz/
 | B | parentCategory | 親カテゴリ名（例: 食費、交通費） |
 | C | childCategory | 子カテゴリ名（例: 外食、電車。空欄可） |
 
-### シート: メンバー（Phase 3で手動作成）
+### シート: メンバー（手動作成）
+
+スプレッドシートで「メンバー」シートを作成し、以下のヘッダー行を設定してください。データの追加・削除はスプレッドシート上で直接行います。
 
 | 列 | フィールド | 説明 |
 |---|---|---|
-| A | id | UUID |
+| A | id | UUID（任意の一意な文字列） |
 | B | name | メンバー名 |
 
 ---
@@ -143,7 +149,10 @@ waltz/
 - **HTTPメソッド**: POST
 - **ルーティング**: クエリパラメータ `action` で操作を切り分け
 - **データ**: リクエストbodyにJSON
+- **認証**: リクエストbodyに `apiKey` フィールドを含める（全アクション共通）
 - **URL**: `https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec?action={ACTION}`
+
+> `API_KEY` が Script Properties に未設定の場合、認証はスキップされます。設定方法は[API Key の設定](#api-key-の設定)を参照してください。
 
 ### レスポンス形式
 
@@ -361,15 +370,48 @@ waltz/
 
 12ヶ月分のデータが返ります。データがない月は income/expense/balance すべて 0 になります。
 
-### Phase 3: 認証 + メンバー管理（予定）
+### Phase 3: 認証 + メンバー管理
 
-| action | 説明 | body |
-|---|---|---|
-| `memberList` | メンバー一覧 | なし |
-| `memberCreate` | メンバー追加 | `{ name }` |
-| `memberDelete` | メンバー削除 | `{ id }` |
+#### 認証
 
-※ 認証方式の詳細はPhase 3実装時に決定
+すべての API リクエストの body に `apiKey` フィールドを含めてください。
+
+```json
+{
+  "apiKey": "your-api-key-here",
+  "date": "2026-03-04",
+  ...
+}
+```
+
+| レスポンス | 条件 |
+|---|---|
+| 正常処理 | `apiKey` が Script Properties の `API_KEY` と一致 |
+| 正常処理 | Script Properties に `API_KEY` が未設定（認証スキップ） |
+| `認証エラー: apiKey が指定されていません` | `API_KEY` が設定済みだが `apiKey` が未指定 |
+| `認証エラー: apiKey が正しくありません` | `apiKey` が不一致 |
+
+#### `action=memberList` - メンバー一覧取得
+
+**リクエストbody:**
+```json
+{
+  "apiKey": "your-api-key-here"
+}
+```
+
+**レスポンス:**
+```json
+{
+  "success": true,
+  "data": [
+    { "id": "1", "name": "太郎" },
+    { "id": "2", "name": "花子" }
+  ]
+}
+```
+
+> メンバーの追加・削除はスプレッドシートの「メンバー」シートで直接行ってください。シートが存在しない場合は空配列が返ります。
 
 ---
 
@@ -429,6 +471,7 @@ npm run api:login
 |---|---|---|
 | 家計簿 | `id` `date` `type` `parentCategory` `childCategory` `storeName` `persons` `amount` `memo` | 必須 |
 | カテゴリ | `id` `parentCategory` `childCategory` | 任意（カテゴリ一覧APIを使う場合） |
+| メンバー | `id` `name` | 任意（メンバー一覧APIを使う場合） |
 
 ### 6. 初回デプロイ
 
@@ -464,6 +507,22 @@ curl -L -X POST "https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec?action=
 ```json
 {"success":true,"data":[]}
 ```
+
+### 8. API Key の設定
+
+API を外部からのアクセスから保護するために API Key を設定する。
+
+1. GAS エディタを開く（`npm run api:open`）
+2. 左メニューの「プロジェクトの設定」（⚙）を選択
+3. 「スクリプト プロパティ」セクションで以下を追加：
+
+| プロパティ | 値 |
+|---|---|
+| `API_KEY` | 任意の文字列（推奨: 32文字以上のランダム文字列） |
+
+設定後、すべての API リクエストの body に `"apiKey": "設定した値"` を含める必要がある。
+
+> `API_KEY` を設定しない場合、認証なしで API にアクセスできます。開発中は未設定のまま動作確認し、運用開始時に設定することを推奨します。
 
 ---
 
