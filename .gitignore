@@ -6,6 +6,7 @@ dist/
 
 # Generated copy of shared types
 api/src/types.ts
+app/src/types.ts
 
 # Environment
 .env

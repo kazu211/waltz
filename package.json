@@ -10,7 +10,11 @@
     "api:deploy": "npm run api:push && node api/scripts/deploy.js",
     "api:deployments": "cd api && npx clasp deployments",
     "api:open": "cd api && npx clasp open",
-    "api:logs": "cd api && npx clasp logs"
+    "api:logs": "cd api && npx clasp logs",
+    "app:copy-types": "node -e \"const fs=require('fs');const s=fs.readFileSync('shared/types.ts','utf8');fs.writeFileSync('app/src/types.ts',s.replace(/^(type |interface )/gm,'export $1'))\"",
+    "app:dev": "npm run app:copy-types && cd app && npm run dev",
+    "app:build": "npm run app:copy-types && cd app && npm run build",
+    "app:preview": "cd app && npm run preview"
   },
   "devDependencies": {
     "@google/clasp": "^2.4.2",

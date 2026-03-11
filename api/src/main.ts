@@ -27,7 +27,7 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
     const body = e.postData?.contents ? JSON.parse(e.postData.contents) : {};
 
     // 認証チェック
-    const authError = authenticate(body.apiKey);
+    const authError = authenticate(body.authId, body.authPassword);
     if (authError) {
       return jsonResponse({ success: false, error: authError });
     }
@@ -77,20 +77,22 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
 // 認証
 // =============================================================================
 
-function authenticate(apiKey: string | undefined): string | null {
-  const storedKey = PropertiesService.getScriptProperties().getProperty('API_KEY');
+function authenticate(authId: string | undefined, authPassword: string | undefined): string | null {
+  const props = PropertiesService.getScriptProperties();
+  const storedId = props.getProperty('AUTH_ID');
+  const storedPassword = props.getProperty('AUTH_PASSWORD');
 
-  if (!storedKey) {
-    // API_KEY が未設定の場合は認証をスキップ（初期セットアップ用）
+  if (!storedId || !storedPassword) {
+    // 認証情報が未設定の場合は認証をスキップ（初期セットアップ用）
     return null;
   }
 
-  if (!apiKey) {
-    return '認証エラー: apiKey が指定されていません';
+  if (!authId || !authPassword) {
+    return '認証エラー: authId と authPassword は必須です';
   }
 
-  if (apiKey !== storedKey) {
-    return '認証エラー: apiKey が正しくありません';
+  if (authId !== storedId || authPassword !== storedPassword) {
+    return '認証エラー: ID またはパスワードが正しくありません';
   }
 
   return null;
