@@ -48,14 +48,13 @@ waltz/
 | 3 | 月次一覧画面 | 月ごとの収支データ一覧。データの追加・編集・削除が可能 |
 | 4 | 月次収支グラフ画面 | カテゴリ別の円グラフ、収入/支出の棒グラフなど |
 | 5 | 年次推移画面 | 12ヶ月の月次収支推移（折れ線グラフ等） |
-| 6 | カテゴリ管理画面 | 親カテゴリ・子カテゴリのCRUD |
-| 7 | 設定画面 | メンバー管理、表示設定など |
+| 6 | 設定画面 | メンバー管理、表示設定など |
 
 ---
 
 ## フェーズ計画
 
-### Phase 1: 基本CRUD（バックエンド）✅ 今回実装
+### Phase 1: 基本CRUD（バックエンド）✅
 
 - 家計簿データの新規作成・編集・削除・一覧取得
 - バリデーション
@@ -63,11 +62,11 @@ waltz/
 - GitHub Actions による自動デプロイ
 - ドキュメント整備
 
-### Phase 2: カテゴリ管理 + 集計（バックエンド）
+### Phase 2: カテゴリ管理 + 集計（バックエンド）✅
 
-- **カテゴリマスタCRUD**
-  - 別シート「カテゴリ」で親カテゴリ・子カテゴリを管理
-  - `action=categoryList` / `categoryCreate` / `categoryUpdate` / `categoryDelete`
+- **カテゴリマスタ**
+  - 別シート「カテゴリ」で親カテゴリ・子カテゴリを管理（スプレッドシートで直接編集）
+  - `action=categoryList` で一覧取得（読み取り専用）
 - **集計API**
   - `action=summary` → 指定月の収入合計・支出合計・差額
   - `action=summaryByCategory` → カテゴリ別集計（円グラフ用）
@@ -96,14 +95,15 @@ waltz/
 
 - 月次収支グラフ画面（Recharts / Chart.js）
 - 年次推移画面
-- カテゴリ管理画面
 - 設定画面
 
 ---
 
 ## データ構造
 
-### シート: 家計簿
+### シート: 家計簿（手動作成）
+
+スプレッドシートで「家計簿」シートを作成し、1行目に以下のヘッダーを設定してください。
 
 | 列 | フィールド | 型 | 必須 | 説明 |
 |---|---|---|---|---|
@@ -117,15 +117,17 @@ waltz/
 | H | amount | number | ✅ | 金額（0以上） |
 | I | memo | string | - | メモ |
 
-### シート: カテゴリ（Phase 2で追加予定）
+### シート: カテゴリ（手動作成）
+
+スプレッドシートで「カテゴリ」シートを作成し、以下のヘッダー行を設定してください。データの追加・編集・削除はスプレッドシート上で直接行います。
 
 | 列 | フィールド | 説明 |
 |---|---|---|
-| A | id | UUID |
-| B | parentCategory | 親カテゴリ名 |
-| C | childCategory | 子カテゴリ名 |
+| A | id | UUID（任意の一意な文字列） |
+| B | parentCategory | 親カテゴリ名（例: 食費、交通費） |
+| C | childCategory | 子カテゴリ名（例: 外食、電車。空欄可） |
 
-### シート: メンバー（Phase 3で追加予定）
+### シート: メンバー（Phase 3で手動作成）
 
 | 列 | フィールド | 説明 |
 |---|---|---|
@@ -251,17 +253,113 @@ waltz/
 }
 ```
 
-### Phase 2: カテゴリ管理 + 集計（予定）
+### Phase 2: カテゴリ管理 + 集計
 
-| action | 説明 | body |
-|---|---|---|
-| `categoryList` | カテゴリ一覧 | なし |
-| `categoryCreate` | カテゴリ作成 | `{ parentCategory, childCategory }` |
-| `categoryUpdate` | カテゴリ更新 | `{ id, parentCategory?, childCategory? }` |
-| `categoryDelete` | カテゴリ削除 | `{ id }` |
-| `summary` | 月次サマリー | `{ year, month }` |
-| `summaryByCategory` | カテゴリ別集計 | `{ year, month, type? }` |
-| `monthlyTrend` | 月次推移 | `{ year }` |
+#### `action=categoryList` - カテゴリ一覧取得
+
+**リクエストbody:** なし（空オブジェクト `{}` を送信）
+
+**レスポンス:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "...",
+      "parentCategory": "食費",
+      "childCategory": "外食"
+    },
+    {
+      "id": "...",
+      "parentCategory": "食費",
+      "childCategory": "自炊"
+    }
+  ]
+}
+```
+
+> カテゴリの追加・編集・削除はスプレッドシートの「カテゴリ」シートで直接行ってください。シートが存在しない場合は空配列が返ります。
+
+#### `action=summary` - 月次サマリー
+
+**リクエストbody:**
+```json
+{
+  "year": 2026,
+  "month": 3
+}
+```
+
+**レスポンス:**
+```json
+{
+  "success": true,
+  "data": {
+    "year": 2026,
+    "month": 3,
+    "income": 300000,
+    "expense": 180000,
+    "balance": 120000
+  }
+}
+```
+
+#### `action=summaryByCategory` - カテゴリ別集計
+
+**リクエストbody:**
+```json
+{
+  "year": 2026,
+  "month": 3,
+  "type": "expense"
+}
+```
+
+`type` は省略可（デフォルト: `expense`）。
+
+**レスポンス:**
+```json
+{
+  "success": true,
+  "data": {
+    "year": 2026,
+    "month": 3,
+    "type": "expense",
+    "categories": [
+      { "parentCategory": "食費", "childCategory": "外食", "amount": 30000 },
+      { "parentCategory": "交通費", "childCategory": "電車", "amount": 15000 }
+    ]
+  }
+}
+```
+
+カテゴリは金額の降順でソートされます。
+
+#### `action=monthlyTrend` - 月次推移（年間）
+
+**リクエストbody:**
+```json
+{
+  "year": 2026
+}
+```
+
+**レスポンス:**
+```json
+{
+  "success": true,
+  "data": {
+    "year": 2026,
+    "months": [
+      { "month": 1, "income": 300000, "expense": 200000, "balance": 100000 },
+      { "month": 2, "income": 300000, "expense": 180000, "balance": 120000 },
+      ...
+    ]
+  }
+}
+```
+
+12ヶ月分のデータが返ります。データがない月は income/expense/balance すべて 0 になります。
 
 ### Phase 3: 認証 + メンバー管理（予定）
 
@@ -323,7 +421,16 @@ npm run api:login
    }
    ```
 
-### 5. 初回デプロイ
+### 5. シートの作成
+
+スプレッドシートに以下のシートを手動で作成し、1行目にヘッダーを設定する。各シートの詳細は[データ構造](#データ構造)を参照。
+
+| シート名 | ヘッダー（1行目） | 備考 |
+|---|---|---|
+| 家計簿 | `id` `date` `type` `parentCategory` `childCategory` `storeName` `persons` `amount` `memo` | 必須 |
+| カテゴリ | `id` `parentCategory` `childCategory` | 任意（カテゴリ一覧APIを使う場合） |
+
+### 6. 初回デプロイ
 
 プロジェクトルートに戻り、以下のコマンドを実行する：
 
@@ -342,9 +449,9 @@ Deployment ID は以下のコマンドで確認できる：
 npm run api:deployments
 ```
 
-### 6. 動作確認
+### 7. 動作確認
 
-初回の API リクエスト時に「家計簿」シートとヘッダー行が自動作成される。`npm run api:deployments` で確認した Deployment ID を使い、以下のコマンドで動作を確認する：
+`npm run api:deployments` で確認した Deployment ID を使い、以下のコマンドで動作を確認する：
 
 ```bash
 curl -L -X POST "https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec?action=list" \
@@ -357,8 +464,6 @@ curl -L -X POST "https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec?action=
 ```json
 {"success":true,"data":[]}
 ```
-
-スプレッドシートに「家計簿」シートが作成され、ヘッダー行が自動設定されていることを確認する。
 
 ---
 

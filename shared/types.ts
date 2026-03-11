@@ -38,5 +38,71 @@ interface ApiResponse<T = unknown> {
   error?: string;
 }
 
+/** カテゴリレコード */
+interface CategoryRecord {
+  id: string;
+  parentCategory: string;
+  childCategory: string;
+}
+
+/** 月次サマリーリクエスト */
+interface SummaryRequest {
+  year: number;
+  month: number;
+}
+
+/** 月次サマリーレスポンス */
+interface SummaryResponse {
+  year: number;
+  month: number;
+  income: number;
+  expense: number;
+  balance: number;
+}
+
+/** カテゴリ別集計リクエスト */
+interface SummaryByCategoryRequest {
+  year: number;
+  month: number;
+  type?: TransactionType;
+}
+
+/** カテゴリ別集計の各カテゴリ */
+interface CategorySummaryItem {
+  parentCategory: string;
+  childCategory: string;
+  amount: number;
+}
+
+/** カテゴリ別集計レスポンス */
+interface SummaryByCategoryResponse {
+  year: number;
+  month: number;
+  type: TransactionType;
+  categories: CategorySummaryItem[];
+}
+
+/** 月次推移リクエスト */
+interface MonthlyTrendRequest {
+  year: number;
+}
+
+/** 月次推移の各月データ */
+interface MonthlyTrendItem {
+  month: number;
+  income: number;
+  expense: number;
+  balance: number;
+}
+
+/** 月次推移レスポンス */
+interface MonthlyTrendResponse {
+  year: number;
+  months: MonthlyTrendItem[];
+}
+
 /** アクション種別 */
-type ActionType = 'create' | 'update' | 'delete' | 'list';
+type ActionType =
+  | 'create' | 'update' | 'delete' | 'list'
+  | 'categoryList'
+  | 'summary' | 'summaryByCategory' | 'monthlyTrend';
