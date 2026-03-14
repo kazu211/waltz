@@ -34,7 +34,7 @@
 - シート名: `家計簿`
 - ヘッダー行（1行目）: `id | date | type | parentCategory | childCategory | storeName | persons | amount | memo`
 - データは2行目以降
-- シートが存在しない場合は `getSheet()` 関数で自動作成
+- シートが存在しない場合は `initializeSpreadsheet()` 関数で作成（GAS エディタから手動実行）
 
 ## clasp 操作
 

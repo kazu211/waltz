@@ -11,7 +11,7 @@ Waltz は家計簿 Web アプリケーションです。Google Apps Script (GAS)
 ## 技術スタック
 
 - **バックエンド**: Google Apps Script (TypeScript)
-- **フロントエンド**: React + Vite + TypeScript + Tailwind CSS（Phase 4 以降）
+- **フロントエンド**: React + Vite + TypeScript + Tailwind CSS
 - **データベース**: Google スプレッドシート
 - **ホスティング（API）**: GAS Web App
 - **ホスティング（フロント）**: GitHub Pages
@@ -26,13 +26,28 @@ waltz/
 │   ├── src/
 │   │   ├── main.ts         ← API メインコード
 │   │   └── appsscript.json ← GAS プロジェクト設定
+│   ├── scripts/
+│   │   └── deploy.js       ← デプロイスクリプト
+│   ├── openapi.yaml        ← API 仕様書（OpenAPI 3.0）
 │   ├── tsconfig.json
 │   └── .clasp.json.example ← clasp 設定テンプレート
+├── app/                    ← React フロントエンド
+│   ├── src/
+│   │   ├── components/     ← 共通コンポーネント
+│   │   ├── contexts/       ← React Context（認証等）
+│   │   ├── lib/            ← API クライアント等
+│   │   ├── mocks/          ← モックデータ
+│   │   ├── pages/          ← ページコンポーネント
+│   │   ├── App.tsx         ← ルーティング
+│   │   └── main.tsx        ← エントリーポイント
+│   ├── vite.config.ts
+│   └── package.json
 ├── shared/                 ← 共有型定義
 │   └── types.ts
 ├── .github/
 │   ├── workflows/
-│   │   └── deploy-api.yml  ← GAS 自動デプロイ
+│   │   ├── deploy-api.yml  ← GAS 自動デプロイ
+│   │   └── deploy-app.yml  ← GitHub Pages 自動デプロイ
 │   ├── instructions/       ← Copilot トピック別指示
 │   └── copilot-instructions.md
 ├── package.json

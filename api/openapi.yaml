@@ -1,0 +1,632 @@
+openapi: '3.0.3'
+info:
+  title: Waltz - 家計簿 API
+  description: |
+    家計簿 Web アプリケーション「Waltz」のバックエンド API。
+    Google Apps Script (GAS) Web App として動作し、Google スプレッドシートをデータベースとして使用します。
+
+    ## 共通仕様
+
+    - **HTTPメソッド**: すべて POST
+    - **ルーティング**: クエリパラメータ `action` で操作を切り分け
+    - **認証**: リクエスト body に `authId` / `authPassword` を含める（全アクション共通）
+    - **URL**: `https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec?action={ACTION}`
+
+    > `AUTH_ID` / `AUTH_PASSWORD` が Script Properties に未設定の場合、認証はスキップされます。
+  version: '1.0.0'
+
+servers:
+  - url: https://script.google.com/macros/s/{deploymentId}/exec
+    description: GAS Web App
+    variables:
+      deploymentId:
+        default: YOUR_DEPLOYMENT_ID
+        description: GAS の Deployment ID
+
+paths:
+  /?action=create:
+    post:
+      summary: 家計簿レコード新規作成
+      operationId: create
+      tags: [家計簿]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/CreateRequest'
+            example:
+              authId: your-id
+              authPassword: your-password
+              date: '2026-03-04'
+              type: expense
+              parentCategory: 食費
+              childCategory: 外食
+              storeName: レストランA
+              persons: [太郎, 花子]
+              amount: 3000
+              memo: ランチ
+      responses:
+        '200':
+          description: 作成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KakeiboRecordResponse'
+
+  /?action=update:
+    post:
+      summary: 家計簿レコード更新
+      operationId: update
+      tags: [家計簿]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/UpdateRequest'
+            example:
+              authId: your-id
+              authPassword: your-password
+              id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+              amount: 3500
+              memo: ランチ（修正）
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KakeiboRecordResponse'
+
+  /?action=delete:
+    post:
+      summary: 家計簿レコード削除
+      operationId: delete
+      tags: [家計簿]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/DeleteRequest'
+            example:
+              authId: your-id
+              authPassword: your-password
+              id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+      responses:
+        '200':
+          description: 削除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+
+  /?action=list:
+    post:
+      summary: 家計簿レコード一覧取得
+      description: 期間指定はオプション。省略時は全件取得。日付の降順でソートされます。
+      operationId: list
+      tags: [家計簿]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/ListRequest'
+            example:
+              authId: your-id
+              authPassword: your-password
+              startDate: '2026-03-01'
+              endDate: '2026-03-31'
+      responses:
+        '200':
+          description: 一覧取得成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KakeiboRecordListResponse'
+
+  /?action=categoryList:
+    post:
+      summary: カテゴリ一覧取得
+      description: |
+        「カテゴリ」シートからカテゴリを取得します（読み取り専用）。
+        カテゴリの追加・編集・削除はスプレッドシート上で直接行ってください。
+        シートが存在しない場合は空配列が返ります。
+      operationId: categoryList
+      tags: [カテゴリ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthFields'
+            example:
+              authId: your-id
+              authPassword: your-password
+      responses:
+        '200':
+          description: カテゴリ一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryListResponse'
+
+  /?action=summary:
+    post:
+      summary: 月次サマリー
+      description: 指定月の収入合計・支出合計・差額を取得します。
+      operationId: summary
+      tags: [集計]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/SummaryRequest'
+            example:
+              authId: your-id
+              authPassword: your-password
+              year: 2026
+              month: 3
+      responses:
+        '200':
+          description: 月次サマリー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummaryResultResponse'
+
+  /?action=summaryByCategory:
+    post:
+      summary: カテゴリ別集計
+      description: 指定月のカテゴリ別集計を取得します（円グラフ用）。type 省略時はデフォルトで expense。
+      operationId: summaryByCategory
+      tags: [集計]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/SummaryByCategoryRequest'
+            example:
+              authId: your-id
+              authPassword: your-password
+              year: 2026
+              month: 3
+              type: expense
+      responses:
+        '200':
+          description: カテゴリ別集計
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummaryByCategoryResultResponse'
+
+  /?action=monthlyTrend:
+    post:
+      summary: 月次推移（年間）
+      description: 指定年の12ヶ月分の月次推移を取得します（折れ線グラフ用）。データがない月は 0 になります。
+      operationId: monthlyTrend
+      tags: [集計]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthFields'
+                - $ref: '#/components/schemas/MonthlyTrendRequest'
+            example:
+              authId: your-id
+              authPassword: your-password
+              year: 2026
+      responses:
+        '200':
+          description: 月次推移
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonthlyTrendResultResponse'
+
+  /?action=memberList:
+    post:
+      summary: メンバー一覧取得
+      description: |
+        「メンバー」シートからメンバーを取得します（読み取り専用）。
+        メンバーの追加・削除はスプレッドシート上で直接行ってください。
+        シートが存在しない場合は空配列が返ります。
+      operationId: memberList
+      tags: [メンバー]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthFields'
+            example:
+              authId: your-id
+              authPassword: your-password
+      responses:
+        '200':
+          description: メンバー一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberListResponse'
+
+components:
+  schemas:
+    # 認証
+    AuthFields:
+      type: object
+      properties:
+        authId:
+          type: string
+          description: 認証 ID（Script Properties の AUTH_ID と一致する値）
+        authPassword:
+          type: string
+          description: 認証パスワード（Script Properties の AUTH_PASSWORD と一致する値）
+
+    # 共通レスポンス
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+          description: エラーメッセージ
+
+    # 家計簿
+    TransactionType:
+      type: string
+      enum: [income, expense]
+      description: '`income`（収入）/ `expense`（支出）'
+
+    KakeiboRecord:
+      type: object
+      required: [id, date, type, parentCategory, childCategory, storeName, persons, amount, memo]
+      properties:
+        id:
+          type: string
+          description: UUID（自動生成）
+        date:
+          type: string
+          format: date
+          description: 日付（yyyy-MM-dd）
+        type:
+          $ref: '#/components/schemas/TransactionType'
+        parentCategory:
+          type: string
+          description: 親カテゴリ（例：食費、交通費）
+        childCategory:
+          type: string
+          description: 子カテゴリ（例：外食、電車）
+        storeName:
+          type: string
+          description: 店名
+        persons:
+          type: array
+          items:
+            type: string
+          description: 使用者
+        amount:
+          type: number
+          minimum: 0
+          description: 金額（0以上）
+        memo:
+          type: string
+          description: メモ
+
+    CreateRequest:
+      type: object
+      required: [date, type, parentCategory, amount]
+      properties:
+        date:
+          type: string
+          format: date
+          description: 日付（yyyy-MM-dd）
+        type:
+          $ref: '#/components/schemas/TransactionType'
+        parentCategory:
+          type: string
+          description: 親カテゴリ
+        childCategory:
+          type: string
+          description: 子カテゴリ
+        storeName:
+          type: string
+          description: 店名
+        persons:
+          type: array
+          items:
+            type: string
+          description: 使用者
+        amount:
+          type: number
+          minimum: 0
+          description: 金額（0以上）
+        memo:
+          type: string
+          description: メモ
+
+    UpdateRequest:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+          description: 更新対象のレコード ID
+        date:
+          type: string
+          format: date
+        type:
+          $ref: '#/components/schemas/TransactionType'
+        parentCategory:
+          type: string
+        childCategory:
+          type: string
+        storeName:
+          type: string
+        persons:
+          type: array
+          items:
+            type: string
+        amount:
+          type: number
+          minimum: 0
+        memo:
+          type: string
+
+    DeleteRequest:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+          description: 削除対象のレコード ID
+
+    ListRequest:
+      type: object
+      properties:
+        startDate:
+          type: string
+          format: date
+          description: 開始日（yyyy-MM-dd）
+        endDate:
+          type: string
+          format: date
+          description: 終了日（yyyy-MM-dd）
+
+    KakeiboRecordResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: '#/components/schemas/KakeiboRecord'
+
+    KakeiboRecordListResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/KakeiboRecord'
+
+    DeleteResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: object
+          required: [id]
+          properties:
+            id:
+              type: string
+
+    # カテゴリ
+    CategoryRecord:
+      type: object
+      required: [id, type, parentCategory, childCategory]
+      properties:
+        id:
+          type: string
+        type:
+          $ref: '#/components/schemas/TransactionType'
+        parentCategory:
+          type: string
+          description: 親カテゴリ名
+        childCategory:
+          type: string
+          description: 子カテゴリ名（空欄可）
+
+    CategoryListResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryRecord'
+
+    # 集計
+    SummaryRequest:
+      type: object
+      required: [year, month]
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+
+    SummaryResult:
+      type: object
+      required: [year, month, income, expense, balance]
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        income:
+          type: number
+        expense:
+          type: number
+        balance:
+          type: number
+          description: income - expense
+
+    SummaryResultResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: '#/components/schemas/SummaryResult'
+
+    SummaryByCategoryRequest:
+      type: object
+      required: [year, month]
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+        type:
+          $ref: '#/components/schemas/TransactionType'
+
+    CategorySummaryItem:
+      type: object
+      required: [parentCategory, childCategory, amount]
+      properties:
+        parentCategory:
+          type: string
+        childCategory:
+          type: string
+        amount:
+          type: number
+
+    SummaryByCategoryResult:
+      type: object
+      required: [year, month, type, categories]
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        type:
+          $ref: '#/components/schemas/TransactionType'
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategorySummaryItem'
+          description: 金額の降順でソート
+
+    SummaryByCategoryResultResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: '#/components/schemas/SummaryByCategoryResult'
+
+    MonthlyTrendRequest:
+      type: object
+      required: [year]
+      properties:
+        year:
+          type: integer
+
+    MonthlyTrendItem:
+      type: object
+      required: [month, income, expense, balance]
+      properties:
+        month:
+          type: integer
+        income:
+          type: number
+        expense:
+          type: number
+        balance:
+          type: number
+
+    MonthlyTrendResult:
+      type: object
+      required: [year, months]
+      properties:
+        year:
+          type: integer
+        months:
+          type: array
+          items:
+            $ref: '#/components/schemas/MonthlyTrendItem'
+          description: 1〜12月の12件
+
+    MonthlyTrendResultResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: '#/components/schemas/MonthlyTrendResult'
+
+    # メンバー
+    MemberRecord:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          description: メンバー名
+
+    MemberListResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemberRecord'

@@ -395,6 +395,60 @@ function validateRecord(record: KakeiboRecord): string | null {
 }
 
 // =============================================================================
+// 初期化
+// =============================================================================
+
+/**
+ * スプレッドシートの初期セットアップ。
+ * GAS エディタから手動実行してください。
+ * シート（家計簿・カテゴリ・メンバー）とヘッダー行を作成します。
+ * 既存のシートがある場合はスキップするため、何度実行しても安全です。
+ */
+function initializeSpreadsheet(): void {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const sheets: { name: string; headers: string[] }[] = [
+    { name: SHEET_NAME, headers: [...HEADERS] },
+    { name: CATEGORY_SHEET_NAME, headers: [...CATEGORY_HEADERS] },
+    { name: MEMBER_SHEET_NAME, headers: [...MEMBER_HEADERS] },
+  ];
+
+  const results: string[] = [];
+
+  for (const { name, headers } of sheets) {
+    const existing = ss.getSheetByName(name);
+    if (existing) {
+      results.push(`✓「${name}」シートは既に存在します（スキップ）`);
+      continue;
+    }
+
+    const sheet = ss.insertSheet(name);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+
+    // ヘッダー行の書式設定
+    const headerRange = sheet.getRange(1, 1, 1, headers.length);
+    headerRange.setFontWeight('bold');
+    headerRange.setBackground('#f3f3f3');
+
+    // 1行目を固定
+    sheet.setFrozenRows(1);
+
+    results.push(`✅「${name}」シートを作成しました`);
+  }
+
+  // デフォルトの「シート1」を削除（初期セットアップ時のみ）
+  const defaultSheet = ss.getSheetByName('シート1');
+  if (defaultSheet && ss.getSheets().length > 1) {
+    ss.deleteSheet(defaultSheet);
+    results.push('🗑️ デフォルトの「シート1」を削除しました');
+  }
+
+  const message = results.join('\n');
+  Logger.log(message);
+  SpreadsheetApp.getUi().alert('初期セットアップ完了', message, SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+// =============================================================================
 // ユーティリティ
 // =============================================================================
 
@@ -403,7 +457,7 @@ function getSheet(): GoogleAppsScript.Spreadsheet.Sheet {
   const sheet = ss.getSheetByName(SHEET_NAME);
 
   if (!sheet) {
-    throw new Error(`「${SHEET_NAME}」シートが見つかりません。スプレッドシートに手動で作成してください。`);
+    throw new Error(`「${SHEET_NAME}」シートが見つかりません。GAS エディタから initializeSpreadsheet() を実行してください。`);
   }
 
   return sheet;
