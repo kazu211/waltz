@@ -27,4 +27,10 @@
 - `KakeiboRecord`: 家計簿レコード
 - `CreateRequest` / `UpdateRequest` / `DeleteRequest` / `ListRequest`: API リクエスト型
 - `ApiResponse<T>`: API レスポンス型
+- `CategoryRecord`: カテゴリレコード
+- `SummaryRequest` / `SummaryResponse`: 月次サマリー型
+- `SummaryByCategoryRequest` / `SummaryByCategoryResponse` / `CategorySummaryItem`: カテゴリ別集計型
+- `MonthlyTrendRequest` / `MonthlyTrendResponse` / `MonthlyTrendItem`: 月次推移型
+- `MemberRecord`: メンバーレコード
+- `ScanReceiptRequest` / `ScanReceiptResponse`: レシートスキャン型
 - `ActionType`: アクション種別
