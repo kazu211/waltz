@@ -130,7 +130,7 @@ AUTH_PASSWORD="your-password"
 
 ```bash
 curl -L -X POST "${BASE_URL}?action=list" \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: text/plain" \
   -d "{\"authId\": \"${AUTH_ID}\", \"authPassword\": \"${AUTH_PASSWORD}\"}"
 ```
 
@@ -138,7 +138,7 @@ curl -L -X POST "${BASE_URL}?action=list" \
 
 ```bash
 curl -L -X POST "${BASE_URL}?action=list" \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: text/plain" \
   -d "{\"authId\": \"${AUTH_ID}\", \"authPassword\": \"${AUTH_PASSWORD}\", \"startDate\": \"2026-03-01\", \"endDate\": \"2026-03-31\"}"
 ```
 
@@ -146,7 +146,7 @@ curl -L -X POST "${BASE_URL}?action=list" \
 
 ```bash
 curl -L -X POST "${BASE_URL}?action=create" \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: text/plain" \
   -d "{\"authId\": \"${AUTH_ID}\", \"authPassword\": \"${AUTH_PASSWORD}\", \"date\": \"2026-03-11\", \"type\": \"expense\", \"parentCategory\": \"食費\", \"childCategory\": \"外食\", \"storeName\": \"レストランA\", \"persons\": [\"太郎\", \"花子\"], \"amount\": 3000, \"memo\": \"ランチ\"}"
 ```
 
@@ -154,7 +154,7 @@ curl -L -X POST "${BASE_URL}?action=create" \
 
 ```bash
 curl -L -X POST "${BASE_URL}?action=update" \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: text/plain" \
   -d "{\"authId\": \"${AUTH_ID}\", \"authPassword\": \"${AUTH_PASSWORD}\", \"id\": \"<RECORD_ID>\", \"amount\": 3500, \"memo\": \"ランチ（修正）\"}"
 ```
 
@@ -162,7 +162,7 @@ curl -L -X POST "${BASE_URL}?action=update" \
 
 ```bash
 curl -L -X POST "${BASE_URL}?action=delete" \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: text/plain" \
   -d "{\"authId\": \"${AUTH_ID}\", \"authPassword\": \"${AUTH_PASSWORD}\", \"id\": \"<RECORD_ID>\"}"
 ```
 
@@ -170,7 +170,7 @@ curl -L -X POST "${BASE_URL}?action=delete" \
 
 ```bash
 curl -L -X POST "${BASE_URL}?action=categoryList" \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: text/plain" \
   -d "{\"authId\": \"${AUTH_ID}\", \"authPassword\": \"${AUTH_PASSWORD}\"}"
 ```
 
@@ -178,7 +178,7 @@ curl -L -X POST "${BASE_URL}?action=categoryList" \
 
 ```bash
 curl -L -X POST "${BASE_URL}?action=summary" \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: text/plain" \
   -d "{\"authId\": \"${AUTH_ID}\", \"authPassword\": \"${AUTH_PASSWORD}\", \"year\": 2026, \"month\": 3}"
 ```
 
@@ -186,7 +186,7 @@ curl -L -X POST "${BASE_URL}?action=summary" \
 
 ```bash
 curl -L -X POST "${BASE_URL}?action=summaryByCategory" \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: text/plain" \
   -d "{\"authId\": \"${AUTH_ID}\", \"authPassword\": \"${AUTH_PASSWORD}\", \"year\": 2026, \"month\": 3, \"type\": \"expense\"}"
 ```
 
@@ -194,7 +194,7 @@ curl -L -X POST "${BASE_URL}?action=summaryByCategory" \
 
 ```bash
 curl -L -X POST "${BASE_URL}?action=monthlyTrend" \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: text/plain" \
   -d "{\"authId\": \"${AUTH_ID}\", \"authPassword\": \"${AUTH_PASSWORD}\", \"year\": 2026}"
 ```
 
@@ -202,6 +202,6 @@ curl -L -X POST "${BASE_URL}?action=monthlyTrend" \
 
 ```bash
 curl -L -X POST "${BASE_URL}?action=memberList" \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: text/plain" \
   -d "{\"authId\": \"${AUTH_ID}\", \"authPassword\": \"${AUTH_PASSWORD}\"}"
 ```

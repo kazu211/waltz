@@ -38,6 +38,8 @@ waltz/
 │   │   └── main.tsx        ← エントリーポイント
 │   ├── vite.config.ts
 │   └── package.json
+├── scripts/                ← ビルドスクリプト
+│   └── copy-types.js       ← 共有型定義のコピー
 ├── shared/                 ← 共有型定義
 │   └── types.ts
 ├── .github/
@@ -53,6 +55,18 @@ waltz/
 - **[api/README.md](./api/README.md)** - API 仕様、データ構造、curl 例
 - **[api/openapi.yaml](./api/openapi.yaml)** - OpenAPI 3.0 仕様書
 - **[app/README.md](./app/README.md)** - フロントエンド開発ガイド
+
+## 画面構成
+
+| 画面 | パス | 概要 |
+|---|---|---|
+| 月次グラフ | `/` | トップページ。収支バランス・貯蓄率・カテゴリ別円グラフを表示 |
+| 月次一覧 | `/monthly` | 収支データの一覧・登録・編集・削除 |
+| 年次推移 | `/trend` | 年間の収支推移・貯蓄率推移・カテゴリトレンド |
+| 月比較 | `/compare` | 任意の2ヶ月間のカテゴリ別比較・構成比較 |
+| 設定 | `/settings` | ログイン情報の管理 |
+
+全画面で使用者（persons）フィルタに対応しています。
 
 ---
 
@@ -115,22 +129,42 @@ npm run api:deploy
 
 初回は新規デプロイが作成されます。2回目以降は同じ Deployment ID で再デプロイされるため URL が変わりません。
 
-### Step 6. スプレッドシートの初期化
+### Step 6. スプレッドシートのシート作成
 
-デプロイ後、GAS エディタ上でシート（家計簿・カテゴリ・メンバー）を自動作成します。
+スプレッドシートに以下の3シートを手動で作成します。
 
-1. GAS エディタを開く：
+#### 家計簿シート
 
-```bash
-npm run api:open
-```
+- シート名: `家計簿`
+- ヘッダー行（1行目）:
 
-2. GAS エディタの上部にある **関数選択ドロップダウン**（「関数を選択」と表示されている箇所）から **`initializeSpreadsheet`** を選択
-3. **「▶ 実行」ボタン** をクリック
-4. 初回実行時は権限の承認を求められるので **「許可」** をクリック
-5. 完了ダイアログが表示されれば成功
+| A | B | C | D | E | F | G | H | I |
+|---|---|---|---|---|---|---|---|---|
+| id | date | type | parentCategory | childCategory | storeName | persons | amount | memo |
 
-> 💡 `initializeSpreadsheet` は何度実行しても安全です（既存のシートはスキップされます）。
+#### カテゴリシート
+
+- シート名: `カテゴリ`
+- ヘッダー行（1行目）:
+
+| A | B | C |
+|---|---|---|
+| type | parentCategory | childCategory |
+
+- 2行目以降にカテゴリデータを入力（例: `expense`, `食費`, `外食`）
+
+#### メンバーシート
+
+- シート名: `メンバー`
+- ヘッダー行（1行目）:
+
+| A |
+|---|
+| name |
+
+- 2行目以降にメンバー名を入力（例: `太郎`）
+
+> 💡 データは2行目以降に追加してください。1行目はヘッダーとして API が使用します。
 
 ### Step 7. 動作確認
 
@@ -144,7 +178,7 @@ API の動作確認：
 
 ```bash
 curl -L -X POST "https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec?action=list" \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: text/plain" \
   -d '{}'
 ```
 

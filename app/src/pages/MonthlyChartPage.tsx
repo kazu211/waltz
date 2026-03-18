@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 import { api } from '../lib/api';
 import type { SummaryByCategoryResponse, SummaryResponse, KakeiboRecord, TransactionType } from '../types';
@@ -119,13 +118,6 @@ export default function MonthlyChartPage() {
     return Object.values(map).sort((a, b) => b.amount - a.amount);
   })();
 
-  // 棒グラフ用データ
-  const barData = activeSummary ? [
-    { name: '収入', amount: activeSummary.income, fill: '#10b981' },
-    { name: '支出', amount: activeSummary.expense, fill: '#ef4444' },
-    { name: '収支', amount: activeSummary.balance, fill: activeSummary.balance >= 0 ? '#3b82f6' : '#ef4444' },
-  ] : [];
-
   // 貯蓄率
   const savingsRate = activeSummary && activeSummary.income > 0
     ? (activeSummary.balance / activeSummary.income) * 100
@@ -176,7 +168,7 @@ export default function MonthlyChartPage() {
                 </div>
                 <div>
                   <p className="text-gray-500">収支</p>
-                  <p className={`text-lg font-bold ${activeSummary.balance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                  <p className={`text-lg font-bold ${activeSummary.balance >= 0 ? 'text-blue-600' : 'text-amber-600'}`}>
                     {fmt(activeSummary.balance)}
                   </p>
                 </div>
@@ -185,14 +177,14 @@ export default function MonthlyChartPage() {
                 <div>
                   <div className="flex items-center justify-between text-sm mb-1">
                     <span className="text-gray-600">貯蓄率（(収入 − 支出) ÷ 収入）</span>
-                    <span className={`font-bold ${savingsRate < 0 ? 'text-red-600' : savingsRate < 20 ? 'text-yellow-600' : 'text-green-600'}`}>
+                    <span className={`font-bold ${savingsRate < 0 ? 'text-amber-600' : savingsRate < 20 ? 'text-yellow-600' : 'text-green-600'}`}>
                       {savingsRate.toFixed(1)}%
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-3">
                     <div
                       className={`h-3 rounded-full transition-all ${
-                        savingsRate < 0 ? 'bg-red-500' : savingsRate < 20 ? 'bg-yellow-500' : 'bg-green-500'
+                        savingsRate < 0 ? 'bg-amber-500' : savingsRate < 20 ? 'bg-yellow-500' : 'bg-green-500'
                       }`}
                       style={{ width: `${Math.max(Math.min(savingsRate, 100), 0)}%` }}
                     />
@@ -203,7 +195,7 @@ export default function MonthlyChartPage() {
                     </p>
                   )}
                   {savingsRate < 0 && (
-                    <p className="text-xs text-red-500 mt-1 text-right">
+                    <p className="text-xs text-amber-500 mt-1 text-right">
                       赤字 {fmt(Math.abs(activeSummary.balance))}
                     </p>
                   )}
@@ -214,24 +206,6 @@ export default function MonthlyChartPage() {
               )}
             </div>
           )}
-
-          {/* 収入/支出 棒グラフ */}
-          <div className="bg-white rounded-lg shadow p-5">
-            <h3 className="text-base font-bold text-gray-800 mb-4">月間サマリー</h3>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={barData} layout="vertical" margin={{ left: 10, right: 30 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" tickFormatter={v => `¥${Number(v).toLocaleString('ja-JP')}`} />
-                <YAxis type="category" dataKey="name" width={40} />
-                <Tooltip formatter={tooltipFmt} />
-                <Bar dataKey="amount" radius={[0, 4, 4, 0]}>
-                  {barData.map((entry, i) => (
-                    <Cell key={i} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
 
           {/* カテゴリ別円グラフ */}
           <div className="bg-white rounded-lg shadow p-5">

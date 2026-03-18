@@ -90,10 +90,27 @@ export default function MonthlyListPage() {
   return (
     <div>
       {/* ヘッダー: 月ナビ + 追加ボタン */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <button onClick={prevMonth} className="p-2 hover:bg-gray-200 rounded-md text-gray-600 transition-colors">◀</button>
-          <h2 className="text-xl font-bold text-gray-900">{year}年{month}月</h2>
+          <select
+            value={year}
+            onChange={e => setYear(Number(e.target.value))}
+            className="px-2 py-1.5 border border-gray-300 rounded text-sm font-bold bg-white"
+          >
+            {Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i).map(y => (
+              <option key={y} value={y}>{y}年</option>
+            ))}
+          </select>
+          <select
+            value={month}
+            onChange={e => setMonth(Number(e.target.value))}
+            className="px-2 py-1.5 border border-gray-300 rounded text-sm font-bold bg-white"
+          >
+            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+              <option key={m} value={m}>{m}月</option>
+            ))}
+          </select>
           <button onClick={nextMonth} className="p-2 hover:bg-gray-200 rounded-md text-gray-600 transition-colors">▶</button>
         </div>
         <button
@@ -116,7 +133,7 @@ export default function MonthlyListPage() {
         </div>
         <div className="bg-white rounded-lg shadow px-4 py-3 text-center">
           <p className="text-xs text-gray-500">収支</p>
-          <p className={`text-lg font-bold ${income - expense >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+          <p className={`text-lg font-bold ${income - expense >= 0 ? 'text-blue-600' : 'text-amber-600'}`}>
             ¥{fmt(income - expense)}
           </p>
         </div>

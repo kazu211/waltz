@@ -182,7 +182,7 @@ export default function AnnualTrendPage() {
               </div>
               <div className="bg-white rounded-lg shadow px-4 py-3 text-center">
                 <p className="text-xs text-gray-500">年間収支</p>
-                <p className={`text-lg font-bold ${totals.income - totals.expense >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                <p className={`text-lg font-bold ${totals.income - totals.expense >= 0 ? 'text-blue-600' : 'text-amber-600'}`}>
                   {fmt(totals.income - totals.expense)}
                 </p>
               </div>
@@ -276,8 +276,8 @@ export default function AnnualTrendPage() {
                       <td className="px-4 py-3">{m.month}月</td>
                       <td className="px-4 py-3 text-right text-green-600">{fmt(m.income)}</td>
                       <td className="px-4 py-3 text-right text-red-600">{fmt(m.expense)}</td>
-                      <td className={`px-4 py-3 text-right font-medium ${m.balance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>{fmt(m.balance)}</td>
-                      <td className={`px-4 py-3 text-right ${rate !== null && rate < 0 ? 'text-red-600' : rate !== null && rate < 20 ? 'text-yellow-600' : 'text-green-600'}`}>{rate !== null ? `${rate}%` : '-'}</td>
+                      <td className={`px-4 py-3 text-right font-medium ${m.balance >= 0 ? 'text-blue-600' : 'text-amber-600'}`}>{fmt(m.balance)}</td>
+                      <td className={`px-4 py-3 text-right ${rate !== null && rate < 0 ? 'text-amber-600' : rate !== null && rate < 20 ? 'text-yellow-600' : 'text-green-600'}`}>{rate !== null ? `${rate}%` : '-'}</td>
                     </tr>
                   );
                 })}

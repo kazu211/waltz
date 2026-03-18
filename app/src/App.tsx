@@ -2,7 +2,6 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
 import MonthlyListPage from './pages/MonthlyListPage';
 import MonthlyChartPage from './pages/MonthlyChartPage';
 import AnnualTrendPage from './pages/AnnualTrendPage';
@@ -32,9 +31,8 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<DashboardPage />} />
+          <Route index element={<MonthlyChartPage />} />
           <Route path="monthly" element={<MonthlyListPage />} />
-          <Route path="chart" element={<MonthlyChartPage />} />
           <Route path="trend" element={<AnnualTrendPage />} />
           <Route path="compare" element={<MonthComparePage />} />
           <Route path="settings" element={<SettingsPage />} />

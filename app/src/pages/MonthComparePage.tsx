@@ -1,7 +1,4 @@
 import { useEffect, useState, useMemo } from 'react';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-} from 'recharts';
 import { api } from '../lib/api';
 import type { SummaryResponse, SummaryByCategoryResponse, KakeiboRecord, TransactionType } from '../types';
 
@@ -90,8 +87,6 @@ export default function MonthComparePage() {
   const activeCatB = filtered ? filtered.catB : catB;
 
   const fmt = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tooltipFmt = (v: any) => fmt(Number(v));
 
   const labelA = `${yearA}年${monthA}月`;
   const labelB = `${yearB}年${monthB}月`;
@@ -99,7 +94,7 @@ export default function MonthComparePage() {
   const summaryRows = activeSumA && activeSumB ? [
     { label: '収入', a: activeSumA.income, b: activeSumB.income, color: 'text-green-600' },
     { label: '支出', a: activeSumA.expense, b: activeSumB.expense, color: 'text-red-600' },
-    { label: '収支', a: activeSumA.balance, b: activeSumB.balance, color: activeSumA.balance >= 0 ? 'text-blue-600' : 'text-red-600' },
+    { label: '収支', a: activeSumA.balance, b: activeSumB.balance, color: activeSumA.balance >= 0 ? 'text-blue-600' : 'text-amber-600' },
   ] : [];
 
   const rateA = activeSumA && activeSumA.income > 0 ? Math.round((activeSumA.balance / activeSumA.income) * 100) : null;
@@ -129,12 +124,6 @@ export default function MonthComparePage() {
       b: bItems.find(x => x.key === key)?.amount ?? 0,
     })).sort((x, y) => y.a - x.a);
   })();
-
-  const barChartData = categoryCompare.map(d => ({
-    name: d.name,
-    [labelA]: d.a,
-    [labelB]: d.b,
-  }));
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i);
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -223,10 +212,10 @@ export default function MonthComparePage() {
                 })}
                 <tr className="hover:bg-gray-50 border-t-2 border-gray-200">
                   <td className="px-4 py-3 font-medium">貯蓄率</td>
-                  <td className={`px-4 py-3 text-right font-bold ${rateA !== null && rateA < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  <td className={`px-4 py-3 text-right font-bold ${rateA !== null && rateA < 0 ? 'text-amber-600' : 'text-green-600'}`}>
                     {rateA !== null ? `${rateA}%` : '-'}
                   </td>
-                  <td className={`px-4 py-3 text-right font-bold ${rateB !== null && rateB < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  <td className={`px-4 py-3 text-right font-bold ${rateB !== null && rateB < 0 ? 'text-amber-600' : 'text-green-600'}`}>
                     {rateB !== null ? `${rateB}%` : '-'}
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -253,55 +242,130 @@ export default function MonthComparePage() {
             </div>
           </div>
 
-          {/* 比較棒グラフ */}
-          {barChartData.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-5">
-              <h3 className="text-base font-bold text-gray-800 mb-4">カテゴリ別比較</h3>
-              <ResponsiveContainer width="100%" height={Math.max(barChartData.length * 50, 200)}>
-                <BarChart data={barChartData} layout="vertical" margin={{ left: 20, right: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" tickFormatter={v => `¥${Number(v).toLocaleString('ja-JP')}`} />
-                  <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={tooltipFmt} />
-                  <Legend />
-                  <Bar dataKey={labelA} fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={14} />
-                  <Bar dataKey={labelB} fill="#a78bfa" radius={[0, 4, 4, 0]} barSize={14} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+          {/* 構成比較（100%バー） */}
+          {categoryCompare.length > 0 && (() => {
+            const totalA = categoryCompare.reduce((s, d) => s + d.a, 0);
+            const totalB = categoryCompare.reduce((s, d) => s + d.b, 0);
+            const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6'];
+            return (
+              <div className="bg-white rounded-lg shadow p-5">
+                <h3 className="text-base font-bold text-gray-800 mb-4">構成比較</h3>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">{labelA}（{fmt(totalA)}）</p>
+                    <div className="flex h-8 rounded-md overflow-hidden">
+                      {categoryCompare.map((d, i) => {
+                        const pct = totalA > 0 ? (d.a / totalA) * 100 : 0;
+                        if (pct === 0) return null;
+                        return (
+                          <div
+                            key={d.name}
+                            className="relative group cursor-default"
+                            style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }}
+                          >
+                            {pct >= 8 && (
+                              <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white font-medium truncate px-1">
+                                {pct.toFixed(0)}%
+                              </span>
+                            )}
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 whitespace-nowrap bg-gray-800 text-white text-xs rounded-md px-3 py-1.5 shadow-lg pointer-events-none">
+                              <p className="font-medium">{d.name}</p>
+                              <p>{fmt(d.a)}（{pct.toFixed(1)}%）</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">{labelB}（{fmt(totalB)}）</p>
+                    <div className="flex h-8 rounded-md overflow-hidden">
+                      {categoryCompare.map((d, i) => {
+                        const pct = totalB > 0 ? (d.b / totalB) * 100 : 0;
+                        if (pct === 0) return null;
+                        return (
+                          <div
+                            key={d.name}
+                            className="relative group cursor-default"
+                            style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }}
+                          >
+                            {pct >= 8 && (
+                              <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white font-medium truncate px-1">
+                                {pct.toFixed(0)}%
+                              </span>
+                            )}
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 whitespace-nowrap bg-gray-800 text-white text-xs rounded-md px-3 py-1.5 shadow-lg pointer-events-none">
+                              <p className="font-medium">{d.name}</p>
+                              <p>{fmt(d.b)}（{pct.toFixed(1)}%）</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {/* 凡例 */}
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                    {categoryCompare.map((d, i) => (
+                      <div key={d.name} className="flex items-center gap-1 text-xs text-gray-600">
+                        <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                        {d.name}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* 比較テーブル */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-500">カテゴリ</th>
-                  <th className="px-4 py-3 text-right font-medium text-blue-600">{labelA}</th>
-                  <th className="px-4 py-3 text-right font-medium text-purple-600">{labelB}</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-500">差額</th>
+                  <th className="px-3 py-3 text-left font-medium text-gray-500">カテゴリ</th>
+                  <th className="px-3 py-3 text-right font-medium text-blue-600">{labelA}</th>
+                  <th className="px-3 py-3 text-right font-medium text-blue-400 text-xs">構成比</th>
+                  <th className="px-3 py-3 text-right font-medium text-purple-600">{labelB}</th>
+                  <th className="px-3 py-3 text-right font-medium text-purple-400 text-xs">構成比</th>
+                  <th className="px-3 py-3 text-right font-medium text-gray-500">差額</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {categoryCompare.map(d => {
-                  const diff = d.a - d.b;
-                  return (
-                    <tr key={d.name} className="hover:bg-gray-50">
-                      <td className="px-4 py-2.5 font-medium">{d.name}</td>
-                      <td className="px-4 py-2.5 text-right">{fmt(d.a)}</td>
-                      <td className="px-4 py-2.5 text-right text-gray-500">{fmt(d.b)}</td>
-                      <td className="px-4 py-2.5 text-right">
-                        {diff === 0 ? (
-                          <span className="text-gray-400">±0</span>
-                        ) : diff > 0 ? (
-                          <span className="text-red-500">↑ {fmt(diff)}</span>
-                        ) : (
-                          <span className="text-green-500">↓ {fmt(Math.abs(diff))}</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {(() => {
+                  const totalA = categoryCompare.reduce((s, d) => s + d.a, 0);
+                  const totalB = categoryCompare.reduce((s, d) => s + d.b, 0);
+                  return categoryCompare.map(d => {
+                    const diff = d.a - d.b;
+                    const pctA = totalA > 0 ? (d.a / totalA) * 100 : 0;
+                    const pctB = totalB > 0 ? (d.b / totalB) * 100 : 0;
+                    const pctDiff = pctA - pctB;
+                    return (
+                      <tr key={d.name} className="hover:bg-gray-50">
+                        <td className="px-3 py-2.5 font-medium">{d.name}</td>
+                        <td className="px-3 py-2.5 text-right">{fmt(d.a)}</td>
+                        <td className="px-3 py-2.5 text-right text-gray-500 text-xs">{pctA.toFixed(1)}%</td>
+                        <td className="px-3 py-2.5 text-right text-gray-500">{fmt(d.b)}</td>
+                        <td className="px-3 py-2.5 text-right text-gray-500 text-xs">{pctB.toFixed(1)}%</td>
+                        <td className="px-3 py-2.5 text-right">
+                          <div>
+                            {diff === 0 ? (
+                              <span className="text-gray-400">±0</span>
+                            ) : diff > 0 ? (
+                              <span className="text-red-500">↑ {fmt(diff)}</span>
+                            ) : (
+                              <span className="text-green-500">↓ {fmt(Math.abs(diff))}</span>
+                            )}
+                          </div>
+                          {pctDiff !== 0 && (
+                            <div className="text-[10px] text-gray-400">
+                              {pctDiff > 0 ? '+' : ''}{pctDiff.toFixed(1)}pt
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()}
               </tbody>
             </table>
           </div>

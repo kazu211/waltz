@@ -3,9 +3,8 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const navItems = [
-  { to: '/', label: 'ダッシュボード', icon: '📊' },
+  { to: '/', label: '月次グラフ', icon: '📈' },
   { to: '/monthly', label: '月次一覧', icon: '📋' },
-  { to: '/chart', label: '月次グラフ', icon: '📈' },
   { to: '/trend', label: '年次推移', icon: '📉' },
   { to: '/compare', label: '月比較', icon: '🔄' },
   { to: '/settings', label: '設定', icon: '⚙️' },
@@ -20,7 +19,10 @@ export default function Layout() {
       {/* ヘッダー */}
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <h1 className="text-lg font-bold text-gray-900">🎵 Waltz</h1>
+          <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <img src="/waltz/waltz.svg" alt="Waltz" className="w-7 h-7" />
+            Waltz
+          </h1>
 
           {/* モバイルメニューボタン */}
           <button
