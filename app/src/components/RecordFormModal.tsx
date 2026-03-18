@@ -5,11 +5,17 @@ interface Props {
   record: KakeiboRecord | null; // null = 新規作成
   categories: CategoryRecord[];
   members: MemberRecord[];
+  initialValues?: {
+    date?: string;
+    storeName?: string;
+    amount?: number;
+    memo?: string;
+  };
   onSave: (data: CreateRequest | UpdateRequest) => Promise<void>;
   onClose: () => void;
 }
 
-export default function RecordFormModal({ record, categories, members, onSave, onClose }: Props) {
+export default function RecordFormModal({ record, categories, members, initialValues, onSave, onClose }: Props) {
   const [date, setDate] = useState('');
   const [type, setType] = useState<TransactionType>('expense');
   const [parentCategory, setParentCategory] = useState('');
@@ -33,10 +39,14 @@ export default function RecordFormModal({ record, categories, members, onSave, o
       setAmount(String(record.amount));
       setMemo(record.memo);
     } else {
+      // 新規作成: initialValues があればプリフィル（レシートスキャン等）
       const today = new Date();
-      setDate(today.toISOString().slice(0, 10));
+      setDate(initialValues?.date || today.toISOString().slice(0, 10));
+      setStoreName(initialValues?.storeName || '');
+      if (initialValues?.amount) setAmount(String(initialValues.amount));
+      if (initialValues?.memo) setMemo(initialValues.memo);
     }
-  }, [record]);
+  }, [record, initialValues]);
 
   // 親カテゴリのユニーク一覧
   // 選択中の種別に対応するカテゴリのみ表示

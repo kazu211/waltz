@@ -75,15 +75,6 @@ export default function MonthlyChartPage() {
   const activeSummary = filtered ? filtered.summary : summary;
   const activeCatData = filtered ? filtered.catData : catData;
 
-  const prevMonth = () => {
-    if (month === 1) { setYear(y => y - 1); setMonth(12); }
-    else { setMonth(m => m - 1); }
-  };
-  const nextMonth = () => {
-    if (month === 12) { setYear(y => y + 1); setMonth(1); }
-    else { setMonth(m => m + 1); }
-  };
-
   const fmt = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tooltipFmt = (v: any) => fmt(Number(v));
@@ -128,9 +119,24 @@ export default function MonthlyChartPage() {
       {/* ヘッダー */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <button onClick={prevMonth} className="p-2 hover:bg-gray-200 rounded-md text-gray-600 transition-colors">◀</button>
-          <h2 className="text-xl font-bold text-gray-900">{year}年{month}月</h2>
-          <button onClick={nextMonth} className="p-2 hover:bg-gray-200 rounded-md text-gray-600 transition-colors">▶</button>
+          <select
+            value={year}
+            onChange={e => setYear(Number(e.target.value))}
+            className="px-2 py-1.5 border border-gray-300 rounded text-sm font-bold bg-white"
+          >
+            {Array.from({ length: 7 }, (_, i) => now.getFullYear() - 5 + i).map(y => (
+              <option key={y} value={y}>{y}年</option>
+            ))}
+          </select>
+          <select
+            value={month}
+            onChange={e => setMonth(Number(e.target.value))}
+            className="px-2 py-1.5 border border-gray-300 rounded text-sm font-bold bg-white"
+          >
+            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+              <option key={m} value={m}>{m}月</option>
+            ))}
+          </select>
         </div>
         {/* 使用者フィルタ */}
         {persons.length > 0 && (

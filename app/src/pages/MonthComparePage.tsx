@@ -125,7 +125,7 @@ export default function MonthComparePage() {
     })).sort((x, y) => y.a - x.a);
   })();
 
-  const yearOptions = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i);
+  const yearOptions = Array.from({ length: 7 }, (_, i) => now.getFullYear() - 5 + i);
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
 
   return (

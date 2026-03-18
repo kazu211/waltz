@@ -43,6 +43,7 @@ API 仕様は OpenAPI 3.0 形式で記述しています。
 | `summaryByCategory` | カテゴリ別集計 | 集計 |
 | `monthlyTrend` | 月次推移（年間） | 集計 |
 | `memberList` | メンバー一覧取得（読み取り専用） | メンバー |
+| `scanReceipt` | レシート画像から情報を抽出（Gemini API） | AI |
 
 ## データ構造
 
@@ -204,4 +205,31 @@ curl -L -X POST "${BASE_URL}?action=monthlyTrend" \
 curl -L -X POST "${BASE_URL}?action=memberList" \
   -H "Content-Type: text/plain" \
   -d "{\"authId\": \"${AUTH_ID}\", \"authPassword\": \"${AUTH_PASSWORD}\"}"
+```
+
+### レシートスキャン
+
+> ⚠️ `GEMINI_API_KEY` をスクリプトプロパティに設定する必要があります。
+
+```bash
+# 画像をbase64エンコード
+IMAGE_BASE64=$(base64 -w 0 receipt.jpg)
+
+curl -L -X POST "${BASE_URL}?action=scanReceipt" \
+  -H "Content-Type: text/plain" \
+  -d "{\"authId\": \"${AUTH_ID}\", \"authPassword\": \"${AUTH_PASSWORD}\", \"image\": \"${IMAGE_BASE64}\", \"mimeType\": \"image/jpeg\"}"
+```
+
+レスポンス例:
+
+```json
+{
+  "success": true,
+  "data": {
+    "date": "2026-03-15",
+    "storeName": "スーパーマーケットA",
+    "amount": 2480,
+    "items": ["牛乳", "パン", "卵", "バナナ"]
+  }
+}
 ```

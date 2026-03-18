@@ -108,9 +108,24 @@ interface MemberRecord {
   name: string;
 }
 
+/** レシートスキャンリクエスト */
+interface ScanReceiptRequest {
+  image: string;     // base64エンコードされた画像データ
+  mimeType: string;  // image/jpeg, image/png 等
+}
+
+/** レシートスキャンレスポンス */
+interface ScanReceiptResponse {
+  date: string;       // yyyy-MM-dd
+  storeName: string;  // 店名
+  amount: number;     // 合計金額
+  items: string[];    // 品目リスト（メモ用）
+}
+
 /** アクション種別 */
 type ActionType =
   | 'create' | 'update' | 'delete' | 'list'
   | 'categoryList'
   | 'summary' | 'summaryByCategory' | 'monthlyTrend'
-  | 'memberList';
+  | 'memberList'
+  | 'scanReceipt';

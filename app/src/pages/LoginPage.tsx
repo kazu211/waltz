@@ -39,7 +39,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">🎵 Waltz</h1>
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <img src={`${import.meta.env.BASE_URL}waltz.svg`} alt="Waltz" className="w-9 h-9" />
+            <h1 className="text-3xl font-bold text-gray-900">Waltz</h1>
+          </div>
           <p className="mt-2 text-gray-600">家計簿アプリケーション</p>
         </div>
 

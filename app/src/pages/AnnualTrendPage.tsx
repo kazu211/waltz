@@ -145,12 +145,16 @@ export default function AnnualTrendPage() {
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <button onClick={() => setYear(y => y - 1)} className="p-2 hover:bg-gray-200 rounded-md text-gray-600 transition-colors">◀</button>
-          <h2 className="text-xl font-bold text-gray-900">
-            {year}年
-            {person && <span className="text-sm font-normal text-gray-500 ml-2">（{person}）</span>}
-          </h2>
-          <button onClick={() => setYear(y => y + 1)} className="p-2 hover:bg-gray-200 rounded-md text-gray-600 transition-colors">▶</button>
+          <select
+            value={year}
+            onChange={e => setYear(Number(e.target.value))}
+            className="px-2 py-1.5 border border-gray-300 rounded text-sm font-bold bg-white"
+          >
+            {Array.from({ length: 7 }, (_, i) => now.getFullYear() - 5 + i).map(y => (
+              <option key={y} value={y}>{y}年</option>
+            ))}
+          </select>
+          {person && <span className="text-sm text-gray-500">（{person}）</span>}
         </div>
         {persons.length > 0 && (
           <select
