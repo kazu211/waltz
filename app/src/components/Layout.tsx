@@ -20,7 +20,7 @@ export default function Layout() {
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <img src="/waltz/waltz.svg" alt="Waltz" className="w-7 h-7" />
+            <img src={`${import.meta.env.BASE_URL}waltz.svg`} alt="Waltz" className="w-7 h-7" />
             Waltz
           </h1>
 

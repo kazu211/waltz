@@ -6,6 +6,7 @@ import type {
   SummaryResponse,
   SummaryByCategoryResponse,
   MonthlyTrendResponse,
+  ScanReceiptResponse,
   CreateRequest,
   UpdateRequest,
   ListRequest,
@@ -166,5 +167,19 @@ export const api = {
   async memberList(): Promise<MemberRecord[]> {
     if (USE_MOCK) return mockMembers;
     return request<MemberRecord[]>('memberList');
+  },
+
+  // レシートスキャン
+  async scanReceipt(image: string, mimeType: string): Promise<ScanReceiptResponse> {
+    if (USE_MOCK) {
+      await new Promise(r => setTimeout(r, 1500));
+      return {
+        date: new Date().toISOString().slice(0, 10),
+        storeName: 'スーパーマーケットA',
+        amount: 2480,
+        items: ['牛乳', 'パン', '卵', 'バナナ'],
+      };
+    }
+    return request<ScanReceiptResponse>('scanReceipt', { image, mimeType });
   },
 };
