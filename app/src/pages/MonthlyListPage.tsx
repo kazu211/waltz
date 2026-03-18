@@ -44,16 +44,6 @@ export default function MonthlyListPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // 月移動
-  const prevMonth = () => {
-    if (month === 1) { setYear(y => y - 1); setMonth(12); }
-    else { setMonth(m => m - 1); }
-  };
-  const nextMonth = () => {
-    if (month === 12) { setYear(y => y + 1); setMonth(1); }
-    else { setMonth(m => m + 1); }
-  };
-
   // 保存
   const handleSave = async (data: CreateRequest | UpdateRequest) => {
     if ('id' in data && data.id) {
@@ -137,13 +127,12 @@ export default function MonthlyListPage() {
       {/* ヘッダー: 月ナビ + 追加ボタン */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <button onClick={prevMonth} className="p-2 hover:bg-gray-200 rounded-md text-gray-600 transition-colors">◀</button>
           <select
             value={year}
             onChange={e => setYear(Number(e.target.value))}
             className="px-2 py-1.5 border border-gray-300 rounded text-sm font-bold bg-white"
           >
-            {Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i).map(y => (
+            {Array.from({ length: 7 }, (_, i) => now.getFullYear() - 5 + i).map(y => (
               <option key={y} value={y}>{y}年</option>
             ))}
           </select>
@@ -156,7 +145,6 @@ export default function MonthlyListPage() {
               <option key={m} value={m}>{m}月</option>
             ))}
           </select>
-          <button onClick={nextMonth} className="p-2 hover:bg-gray-200 rounded-md text-gray-600 transition-colors">▶</button>
         </div>
         <div className="flex items-center gap-2">
           <button
