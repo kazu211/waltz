@@ -36,7 +36,7 @@ async function request<T>(action: string, body: Record<string, unknown> = {}): P
   const { authId, authPassword } = getCredentials();
   const response = await fetch(`${API_URL}?action=${action}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ authId, authPassword, ...body }),
     redirect: 'follow',
   });
@@ -59,7 +59,7 @@ export async function verifyLogin(authId: string, authPassword: string): Promise
   // 本番: memberList で疎通確認（軽量なリクエスト）
   const response = await fetch(`${API_URL}?action=memberList`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ authId, authPassword }),
     redirect: 'follow',
   });
