@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { api } from '../lib/api';
-import type { KakeiboRecord, CategoryRecord, MemberRecord, CreateRequest, UpdateRequest, ScanReceiptResponse } from '../types';
+import type { KakeiboRecord, CategoryRecord, MemberRecord, CreateRequest, UpdateRequest } from '../types';
 import RecordFormModal from '../components/RecordFormModal';
 import DeleteConfirmDialog from '../components/DeleteConfirmDialog';
 import CategoryFilter from '../components/CategoryFilter';
@@ -17,14 +17,11 @@ export default function MonthlyListPage() {
   const [loading, setLoading] = useState(true);
 
   const [formTarget, setFormTarget] = useState<KakeiboRecord | null | undefined>(undefined); // undefined=閉, null=新規, record=編集
-  const [formInitialValues, setFormInitialValues] = useState<{ date?: string; storeName?: string; amount?: number; memo?: string } | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<KakeiboRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [sortAsc, setSortAsc] = useState(false); // false=降順（新しい順）
   const [catFilter, setCatFilter] = useState<string[]>([]); // 空=すべて
   const [filterOpen, setFilterOpen] = useState<'desktop' | 'mobile' | null>(null);
-  const [scanning, setScanning] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { startDate, endDate } = monthRange(year, month);
 
@@ -102,49 +99,6 @@ export default function MonthlyListPage() {
     }
   };
 
-  // レシートスキャン
-  const handleReceiptScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    // リセットして同じファイルも再選択可能に
-    e.target.value = '';
-
-    setScanning(true);
-    try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          // data:image/jpeg;base64,XXXX → XXXX 部分を取得
-          resolve(result.split(',')[1]);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const result: ScanReceiptResponse = await api.scanReceipt(base64, file.type);
-
-      // スキャン結果でフォームをプリフィルして開く
-      setFormInitialValues({
-        date: result.date || undefined,
-        storeName: result.storeName || undefined,
-        amount: result.amount || undefined,
-        memo: result.items.length > 0 ? result.items.join('、') : undefined,
-      });
-      setFormTarget(null); // 新規作成モードで開く
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'レシートの読み取りに失敗しました');
-    } finally {
-      setScanning(false);
-    }
-  };
-
-  // 通常の新規作成
-  const openNewForm = () => {
-    setFormInitialValues(undefined);
-    setFormTarget(null);
-  };
-
   const fmt = (n: number) => n.toLocaleString('ja-JP');
 
   // 収支サマリー（カテゴリフィルター適用後）
@@ -195,26 +149,11 @@ export default function MonthlyListPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={scanning}
-            className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-md hover:bg-amber-600 transition-colors disabled:opacity-50"
-          >
-            {scanning ? '📷 読取中...' : '📷 レシート'}
-          </button>
-          <button
-            onClick={openNewForm}
+            onClick={() => setFormTarget(null)}
             className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
           >
             ＋ 追加
           </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleReceiptScan}
-            className="hidden"
-          />
         </div>
       </div>
 
@@ -410,21 +349,9 @@ export default function MonthlyListPage() {
           record={formTarget}
           categories={categories}
           members={members}
-          initialValues={formInitialValues}
           onSave={handleSave}
-          onClose={() => { setFormTarget(undefined); setFormInitialValues(undefined); }}
+          onClose={() => setFormTarget(undefined)}
         />
-      )}
-
-      {/* レシートスキャン中オーバーレイ */}
-      {scanning && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-lg shadow-lg px-8 py-6 text-center">
-            <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full mx-auto mb-3"></div>
-            <p className="text-gray-700 font-medium">レシートを読み取り中...</p>
-            <p className="text-xs text-gray-400 mt-1">AI が画像を解析しています</p>
-          </div>
-        </div>
       )}
 
       {/* 削除確認ダイアログ */}
