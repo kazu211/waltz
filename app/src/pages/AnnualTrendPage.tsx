@@ -4,6 +4,7 @@ import {
   BarChart, Bar,
 } from 'recharts';
 import { api } from '../lib/api';
+import { jstDateParts, monthOf } from '../lib/date';
 import type { MonthlyTrendResponse, KakeiboRecord, TransactionType } from '../types';
 
 const CAT_COLORS = [
@@ -14,8 +15,8 @@ const CAT_COLORS = [
 type CatTrendData = { months: { month: number; categories: { parentCategory: string; amount: number }[] }[] };
 
 export default function AnnualTrendPage() {
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
+  const today = jstDateParts();
+  const [year, setYear] = useState(today.year);
   const [data, setData] = useState<MonthlyTrendResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -68,7 +69,7 @@ export default function AnnualTrendPage() {
 
     const months = Array.from({ length: 12 }, (_, i) => {
       const m = i + 1;
-      const mRecs = filtered.filter(r => new Date(r.date).getMonth() + 1 === m);
+      const mRecs = filtered.filter(r => monthOf(r.date) === m);
       const income = mRecs.filter(r => r.type === 'income').reduce((s, r) => s + r.amount, 0);
       const expense = mRecs.filter(r => r.type === 'expense').reduce((s, r) => s + r.amount, 0);
       return { month: m, income, expense, balance: income - expense };
@@ -77,7 +78,7 @@ export default function AnnualTrendPage() {
 
     const buildCatTrend = (tt: TransactionType): CatTrendData => ({
       months: months.map(m => {
-        const mRecs = filtered.filter(r => new Date(r.date).getMonth() + 1 === m.month && r.type === tt);
+        const mRecs = filtered.filter(r => monthOf(r.date) === m.month && r.type === tt);
         const catMap: Record<string, number> = {};
         for (const r of mRecs) catMap[r.parentCategory] = (catMap[r.parentCategory] ?? 0) + r.amount;
         return { month: m.month, categories: Object.entries(catMap).map(([parentCategory, amount]) => ({ parentCategory, amount })) };
@@ -154,7 +155,7 @@ export default function AnnualTrendPage() {
             onChange={e => setYear(Number(e.target.value))}
             className="px-2 py-1.5 border border-gray-300 rounded text-sm font-bold bg-white"
           >
-            {Array.from({ length: 7 }, (_, i) => now.getFullYear() - 5 + i).map(y => (
+            {Array.from({ length: 7 }, (_, i) => today.year - 5 + i).map(y => (
               <option key={y} value={y}>{y}年</option>
             ))}
           </select>

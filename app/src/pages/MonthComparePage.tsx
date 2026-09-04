@@ -1,21 +1,17 @@
 import { useEffect, useState, useMemo } from 'react';
 import { api } from '../lib/api';
+import { jstDateParts, monthRange } from '../lib/date';
 import type { SummaryResponse, SummaryByCategoryResponse, KakeiboRecord, TransactionType } from '../types';
 
 type CategoryView = 'parent' | 'child';
 
 export default function MonthComparePage() {
-  const now = new Date();
-  const [yearA, setYearA] = useState(now.getFullYear());
-  const [monthA, setMonthA] = useState(now.getMonth() + 1);
-  const [yearB, setYearB] = useState(() => {
-    const m = now.getMonth();
-    return m === 0 ? now.getFullYear() - 1 : now.getFullYear();
-  });
-  const [monthB, setMonthB] = useState(() => {
-    const m = now.getMonth();
-    return m === 0 ? 12 : m;
-  });
+  const today = jstDateParts();
+  const [yearA, setYearA] = useState(today.year);
+  const [monthA, setMonthA] = useState(today.month);
+  // 比較先の初期値は前月
+  const [yearB, setYearB] = useState(() => (today.month === 1 ? today.year - 1 : today.year));
+  const [monthB, setMonthB] = useState(() => (today.month === 1 ? 12 : today.month - 1));
 
   const [sumA, setSumA] = useState<SummaryResponse | null>(null);
   const [sumB, setSumB] = useState<SummaryResponse | null>(null);
@@ -31,10 +27,8 @@ export default function MonthComparePage() {
 
   useEffect(() => {
     setLoading(true);
-    const startA = `${yearA}-${String(monthA).padStart(2, '0')}-01`;
-    const endA = `${yearA}-${String(monthA).padStart(2, '0')}-${new Date(yearA, monthA, 0).getDate()}`;
-    const startB = `${yearB}-${String(monthB).padStart(2, '0')}-01`;
-    const endB = `${yearB}-${String(monthB).padStart(2, '0')}-${new Date(yearB, monthB, 0).getDate()}`;
+    const { startDate: startA, endDate: endA } = monthRange(yearA, monthA);
+    const { startDate: startB, endDate: endB } = monthRange(yearB, monthB);
     Promise.all([
       api.summary(yearA, monthA),
       api.summary(yearB, monthB),
@@ -134,7 +128,7 @@ export default function MonthComparePage() {
     );
   })();
 
-  const yearOptions = Array.from({ length: 7 }, (_, i) => now.getFullYear() - 5 + i);
+  const yearOptions = Array.from({ length: 7 }, (_, i) => today.year - 5 + i);
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
 
   return (

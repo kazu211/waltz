@@ -12,6 +12,7 @@ import type {
   ListRequest,
   TransactionType,
 } from '../types';
+import { todayJST } from './date';
 import {
   mockRecords,
   mockCategories,
@@ -174,7 +175,7 @@ export const api = {
     if (USE_MOCK) {
       await new Promise(r => setTimeout(r, 1500));
       return {
-        date: new Date().toISOString().slice(0, 10),
+        date: todayJST(),
         storeName: 'スーパーマーケットA',
         amount: 2480,
         items: ['牛乳', 'パン', '卵', 'バナナ'],

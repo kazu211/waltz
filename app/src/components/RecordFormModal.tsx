@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
+import { todayJST } from '../lib/date';
 import type { KakeiboRecord, CategoryRecord, MemberRecord, TransactionType, CreateRequest, UpdateRequest } from '../types';
 
 interface Props {
@@ -40,8 +41,7 @@ export default function RecordFormModal({ record, categories, members, initialVa
       setMemo(record.memo);
     } else {
       // 新規作成: initialValues があればプリフィル（レシートスキャン等）
-      const today = new Date();
-      setDate(initialValues?.date || today.toISOString().slice(0, 10));
+      setDate(initialValues?.date || todayJST());
       setStoreName(initialValues?.storeName || '');
       if (initialValues?.amount) setAmount(String(initialValues.amount));
       if (initialValues?.memo) setMemo(initialValues.memo);

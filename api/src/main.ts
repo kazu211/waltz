@@ -16,6 +16,8 @@ const CATEGORY_HEADERS: (keyof CategoryRecord)[] = [
 const MEMBER_HEADERS: (keyof MemberRecord)[] = [
   'id', 'name'
 ];
+/** 日付を扱う基準タイムゾーン（日本時間） */
+const APP_TIME_ZONE = 'Asia/Tokyo';
 
 // =============================================================================
 // エントリーポイント
@@ -614,10 +616,8 @@ function rowToRecord(row: unknown[]): KakeiboRecord {
 
 function formatDate(value: unknown): string {
   if (value instanceof Date) {
-    const y = value.getFullYear();
-    const m = String(value.getMonth() + 1).padStart(2, '0');
-    const d = String(value.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    // スプレッドシートやスクリプトのタイムゾーン設定に関わらず JST 基準で日付を返す
+    return Utilities.formatDate(value, APP_TIME_ZONE, 'yyyy-MM-dd');
   }
   return String(value);
 }

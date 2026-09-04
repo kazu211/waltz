@@ -5,11 +5,12 @@ import RecordFormModal from '../components/RecordFormModal';
 import DeleteConfirmDialog from '../components/DeleteConfirmDialog';
 import CategoryFilter from '../components/CategoryFilter';
 import { catKey, countSelected, type CategoryTree } from '../lib/category';
+import { jstDateParts, monthRange } from '../lib/date';
 
 export default function MonthlyListPage() {
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const today = jstDateParts();
+  const [year, setYear] = useState(today.year);
+  const [month, setMonth] = useState(today.month);
   const [records, setRecords] = useState<KakeiboRecord[]>([]);
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
   const [members, setMembers] = useState<MemberRecord[]>([]);
@@ -25,8 +26,7 @@ export default function MonthlyListPage() {
   const [scanning, setScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-  const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
+  const { startDate, endDate } = monthRange(year, month);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -166,7 +166,7 @@ export default function MonthlyListPage() {
             onChange={e => setYear(Number(e.target.value))}
             className="px-2 py-1.5 border border-gray-300 rounded text-sm font-bold bg-white"
           >
-            {Array.from({ length: 7 }, (_, i) => now.getFullYear() - 5 + i).map(y => (
+            {Array.from({ length: 7 }, (_, i) => today.year - 5 + i).map(y => (
               <option key={y} value={y}>{y}年</option>
             ))}
           </select>
