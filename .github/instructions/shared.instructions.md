@@ -32,5 +32,4 @@
 - `SummaryByCategoryRequest` / `SummaryByCategoryResponse` / `CategorySummaryItem`: カテゴリ別集計型
 - `MonthlyTrendRequest` / `MonthlyTrendResponse` / `MonthlyTrendItem`: 月次推移型
 - `MemberRecord`: メンバーレコード
-- `ScanReceiptRequest` / `ScanReceiptResponse`: レシートスキャン型
 - `ActionType`: アクション種別

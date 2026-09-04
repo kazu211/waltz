@@ -1,28 +1,29 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { api } from '../lib/api';
-import type { KakeiboRecord, CategoryRecord, MemberRecord, CreateRequest, UpdateRequest, ScanReceiptResponse } from '../types';
+import type { KakeiboRecord, CategoryRecord, MemberRecord, CreateRequest, UpdateRequest } from '../types';
 import RecordFormModal from '../components/RecordFormModal';
 import DeleteConfirmDialog from '../components/DeleteConfirmDialog';
+import CategoryFilter from '../components/CategoryFilter';
+import { catKey, countSelected, type CategoryTree } from '../lib/category';
+import { jstDateParts, monthRange } from '../lib/date';
 
 export default function MonthlyListPage() {
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const today = jstDateParts();
+  const [year, setYear] = useState(today.year);
+  const [month, setMonth] = useState(today.month);
   const [records, setRecords] = useState<KakeiboRecord[]>([]);
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
   const [members, setMembers] = useState<MemberRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [formTarget, setFormTarget] = useState<KakeiboRecord | null | undefined>(undefined); // undefined=閉, null=新規, record=編集
-  const [formInitialValues, setFormInitialValues] = useState<{ date?: string; storeName?: string; amount?: number; memo?: string } | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<KakeiboRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [sortAsc, setSortAsc] = useState(false); // false=降順（新しい順）
-  const [scanning, setScanning] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [catFilter, setCatFilter] = useState<string[]>([]); // 空=すべて
+  const [filterOpen, setFilterOpen] = useState<'desktop' | 'mobile' | null>(null);
 
-  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-  const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
+  const { startDate, endDate } = monthRange(year, month);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -43,6 +44,36 @@ export default function MonthlyListPage() {
   }, [startDate, endDate]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // 月を切り替えたらカテゴリフィルターをリセット
+  useEffect(() => {
+    setCatFilter([]);
+    setFilterOpen(null);
+  }, [year, month]);
+
+  // 当月のレコードから親子カテゴリのツリーを組み立てる
+  const categoryTree = useMemo<CategoryTree>(() => {
+    const map = new Map<string, Set<string>>();
+    for (const r of records) {
+      if (!r.parentCategory) continue;
+      if (!map.has(r.parentCategory)) map.set(r.parentCategory, new Set());
+      map.get(r.parentCategory)!.add(r.childCategory ?? '');
+    }
+    return [...map.entries()]
+      .sort(([a], [b]) => a.localeCompare(b, 'ja'))
+      .map(([parent, children]) => ({
+        parent,
+        children: [...children].sort((a, b) => a.localeCompare(b, 'ja')),
+      }));
+  }, [records]);
+
+  const filteredRecords = useMemo(() => {
+    if (catFilter.length === 0) return records;
+    const set = new Set(catFilter);
+    return records.filter(r => set.has(catKey(r.parentCategory, r.childCategory ?? '')));
+  }, [records, catFilter]);
+
+  const filterCount = countSelected(categoryTree, catFilter);
 
   // 保存
   const handleSave = async (data: CreateRequest | UpdateRequest) => {
@@ -68,57 +99,14 @@ export default function MonthlyListPage() {
     }
   };
 
-  // レシートスキャン
-  const handleReceiptScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    // リセットして同じファイルも再選択可能に
-    e.target.value = '';
-
-    setScanning(true);
-    try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          // data:image/jpeg;base64,XXXX → XXXX 部分を取得
-          resolve(result.split(',')[1]);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const result: ScanReceiptResponse = await api.scanReceipt(base64, file.type);
-
-      // スキャン結果でフォームをプリフィルして開く
-      setFormInitialValues({
-        date: result.date || undefined,
-        storeName: result.storeName || undefined,
-        amount: result.amount || undefined,
-        memo: result.items.length > 0 ? result.items.join('、') : undefined,
-      });
-      setFormTarget(null); // 新規作成モードで開く
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'レシートの読み取りに失敗しました');
-    } finally {
-      setScanning(false);
-    }
-  };
-
-  // 通常の新規作成
-  const openNewForm = () => {
-    setFormInitialValues(undefined);
-    setFormTarget(null);
-  };
-
   const fmt = (n: number) => n.toLocaleString('ja-JP');
 
-  // 収支サマリー
-  const income = records.filter(r => r.type === 'income').reduce((s, r) => s + r.amount, 0);
-  const expense = records.filter(r => r.type === 'expense').reduce((s, r) => s + r.amount, 0);
+  // 収支サマリー（カテゴリフィルター適用後）
+  const income = filteredRecords.filter(r => r.type === 'income').reduce((s, r) => s + r.amount, 0);
+  const expense = filteredRecords.filter(r => r.type === 'expense').reduce((s, r) => s + r.amount, 0);
 
   // ソート
-  const sortedRecords = [...records].sort((a, b) =>
+  const sortedRecords = [...filteredRecords].sort((a, b) =>
     sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date),
   );
 
@@ -132,7 +120,7 @@ export default function MonthlyListPage() {
             onChange={e => setYear(Number(e.target.value))}
             className="px-2 py-1.5 border border-gray-300 rounded text-sm font-bold bg-white"
           >
-            {Array.from({ length: 7 }, (_, i) => now.getFullYear() - 5 + i).map(y => (
+            {Array.from({ length: 7 }, (_, i) => today.year - 5 + i).map(y => (
               <option key={y} value={y}>{y}年</option>
             ))}
           </select>
@@ -145,29 +133,27 @@ export default function MonthlyListPage() {
               <option key={m} value={m}>{m}月</option>
             ))}
           </select>
+          {/* モバイル: カード表示なのでツールバーからフィルターを開く */}
+          {categoryTree.length > 0 && (
+            <button
+              type="button"
+              data-category-filter-toggle
+              onClick={() => setFilterOpen(prev => (prev === 'mobile' ? null : 'mobile'))}
+              className={`md:hidden px-2 py-1.5 border rounded text-sm transition-colors ${
+                filterCount > 0 ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-300 bg-white text-gray-600'
+              }`}
+            >
+              🔽 カテゴリ{filterCount > 0 ? ` (${filterCount})` : ''}
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={scanning}
-            className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-md hover:bg-amber-600 transition-colors disabled:opacity-50"
-          >
-            {scanning ? '📷 読取中...' : '📷 レシート'}
-          </button>
-          <button
-            onClick={openNewForm}
+            onClick={() => setFormTarget(null)}
             className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
           >
             ＋ 追加
           </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleReceiptScan}
-            className="hidden"
-          />
         </div>
       </div>
 
@@ -189,33 +175,73 @@ export default function MonthlyListPage() {
         </div>
       </div>
 
+      {/* 絞り込み中の表示 */}
+      {filterCount > 0 && (
+        <div className="flex items-center gap-2 mb-3 text-xs text-gray-500">
+          <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full font-medium">
+            カテゴリ {filterCount} 件で絞り込み中
+          </span>
+          <span>{filteredRecords.length}件</span>
+          <button
+            type="button"
+            onClick={() => setCatFilter([])}
+            className="text-gray-500 hover:text-gray-800 underline"
+          >
+            クリア
+          </button>
+        </div>
+      )}
+
       {/* レコード一覧 */}
       {loading ? (
         <div className="text-center py-12 text-gray-500">読み込み中...</div>
-      ) : records.length === 0 ? (
+      ) : sortedRecords.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-8 text-center text-gray-400">
-          データがありません
+          {records.length === 0 ? 'データがありません' : '該当するデータがありません'}
         </div>
       ) : (
         <>
           {/* デスクトップ: テーブル表示 */}
-          <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
+          <div className="hidden md:block bg-white rounded-lg shadow">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th
-                    className="px-4 py-3 text-left font-medium text-gray-500 cursor-pointer select-none hover:text-gray-700"
+                    className="px-4 py-3 text-left font-medium text-gray-500 cursor-pointer select-none hover:text-gray-700 rounded-tl-lg"
                     onClick={() => setSortAsc(prev => !prev)}
                   >
                     日付 {sortAsc ? '▲' : '▼'}
                   </th>
                   <th className="px-4 py-3 text-left font-medium text-gray-500">種別</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-500">カテゴリ</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500 relative">
+                    <button
+                      type="button"
+                      data-category-filter-toggle
+                      onClick={() => setFilterOpen(prev => (prev === 'desktop' ? null : 'desktop'))}
+                      disabled={categoryTree.length === 0}
+                      className={`flex items-center gap-1 font-medium transition-colors disabled:cursor-default ${
+                        filterCount > 0 ? 'text-blue-700' : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      カテゴリ
+                      {categoryTree.length > 0 && (
+                        <span className="text-[10px]">▾{filterCount > 0 ? ` (${filterCount})` : ''}</span>
+                      )}
+                    </button>
+                    {filterOpen === 'desktop' && (
+                      <CategoryFilter
+                        tree={categoryTree}
+                        selected={catFilter}
+                        onApply={setCatFilter}
+                        onClose={() => setFilterOpen(null)}
+                      />
+                    )}
+                  </th>
                   <th className="px-4 py-3 text-left font-medium text-gray-500">店名</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-500">使用者</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-500">金額</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-500">メモ</th>
-                  <th className="px-4 py-3 w-20"></th>
+                  <th className="px-4 py-3 w-20 rounded-tr-lg"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -306,27 +332,26 @@ export default function MonthlyListPage() {
         </>
       )}
 
+      {/* モバイル: カテゴリフィルター */}
+      {filterOpen === 'mobile' && (
+        <CategoryFilter
+          variant="sheet"
+          tree={categoryTree}
+          selected={catFilter}
+          onApply={setCatFilter}
+          onClose={() => setFilterOpen(null)}
+        />
+      )}
+
       {/* 作成/編集モーダル */}
       {formTarget !== undefined && (
         <RecordFormModal
           record={formTarget}
           categories={categories}
           members={members}
-          initialValues={formInitialValues}
           onSave={handleSave}
-          onClose={() => { setFormTarget(undefined); setFormInitialValues(undefined); }}
+          onClose={() => setFormTarget(undefined)}
         />
-      )}
-
-      {/* レシートスキャン中オーバーレイ */}
-      {scanning && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-lg shadow-lg px-8 py-6 text-center">
-            <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full mx-auto mb-3"></div>
-            <p className="text-gray-700 font-medium">レシートを読み取り中...</p>
-            <p className="text-xs text-gray-400 mt-1">AI が画像を解析しています</p>
-          </div>
-        </div>
       )}
 
       {/* 削除確認ダイアログ */}

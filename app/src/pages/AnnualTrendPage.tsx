@@ -4,6 +4,7 @@ import {
   BarChart, Bar,
 } from 'recharts';
 import { api } from '../lib/api';
+import { jstDateParts, monthOf } from '../lib/date';
 import type { MonthlyTrendResponse, KakeiboRecord, TransactionType } from '../types';
 
 const CAT_COLORS = [
@@ -14,8 +15,8 @@ const CAT_COLORS = [
 type CatTrendData = { months: { month: number; categories: { parentCategory: string; amount: number }[] }[] };
 
 export default function AnnualTrendPage() {
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
+  const today = jstDateParts();
+  const [year, setYear] = useState(today.year);
   const [data, setData] = useState<MonthlyTrendResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -68,7 +69,7 @@ export default function AnnualTrendPage() {
 
     const months = Array.from({ length: 12 }, (_, i) => {
       const m = i + 1;
-      const mRecs = filtered.filter(r => new Date(r.date).getMonth() + 1 === m);
+      const mRecs = filtered.filter(r => monthOf(r.date) === m);
       const income = mRecs.filter(r => r.type === 'income').reduce((s, r) => s + r.amount, 0);
       const expense = mRecs.filter(r => r.type === 'expense').reduce((s, r) => s + r.amount, 0);
       return { month: m, income, expense, balance: income - expense };
@@ -77,7 +78,7 @@ export default function AnnualTrendPage() {
 
     const buildCatTrend = (tt: TransactionType): CatTrendData => ({
       months: months.map(m => {
-        const mRecs = filtered.filter(r => new Date(r.date).getMonth() + 1 === m.month && r.type === tt);
+        const mRecs = filtered.filter(r => monthOf(r.date) === m.month && r.type === tt);
         const catMap: Record<string, number> = {};
         for (const r of mRecs) catMap[r.parentCategory] = (catMap[r.parentCategory] ?? 0) + r.amount;
         return { month: m.month, categories: Object.entries(catMap).map(([parentCategory, amount]) => ({ parentCategory, amount })) };
@@ -108,6 +109,10 @@ export default function AnnualTrendPage() {
     (acc, m) => ({ income: acc.income + m.income, expense: acc.expense + m.expense }),
     { income: 0, expense: 0 },
   );
+  // 年間貯蓄率 =（年間収入 - 年間支出）/ 年間収入
+  const totalRate = totals && totals.income > 0
+    ? Math.round(((totals.income - totals.expense) / totals.income) * 100)
+    : null;
 
   const allCatNames = (() => {
     if (!activeCatTrend) return [];
@@ -150,7 +155,7 @@ export default function AnnualTrendPage() {
             onChange={e => setYear(Number(e.target.value))}
             className="px-2 py-1.5 border border-gray-300 rounded text-sm font-bold bg-white"
           >
-            {Array.from({ length: 7 }, (_, i) => now.getFullYear() - 5 + i).map(y => (
+            {Array.from({ length: 7 }, (_, i) => today.year - 5 + i).map(y => (
               <option key={y} value={y}>{y}年</option>
             ))}
           </select>
@@ -175,7 +180,7 @@ export default function AnnualTrendPage() {
       ) : (
         <div className="space-y-6">
           {totals && (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-white rounded-lg shadow px-4 py-3 text-center">
                 <p className="text-xs text-gray-500">年間収入</p>
                 <p className="text-lg font-bold text-green-600">{fmt(totals.income)}</p>
@@ -188,6 +193,14 @@ export default function AnnualTrendPage() {
                 <p className="text-xs text-gray-500">年間収支</p>
                 <p className={`text-lg font-bold ${totals.income - totals.expense >= 0 ? 'text-blue-600' : 'text-amber-600'}`}>
                   {fmt(totals.income - totals.expense)}
+                </p>
+              </div>
+              <div className="bg-white rounded-lg shadow px-4 py-3 text-center">
+                <p className="text-xs text-gray-500">年間貯蓄率</p>
+                <p className={`text-lg font-bold ${
+                  totalRate === null ? 'text-gray-400' : totalRate < 0 ? 'text-amber-600' : totalRate < 20 ? 'text-yellow-600' : 'text-green-600'
+                }`}>
+                  {totalRate !== null ? `${totalRate}%` : '-'}
                 </p>
               </div>
             </div>
@@ -285,6 +298,21 @@ export default function AnnualTrendPage() {
                     </tr>
                   );
                 })}
+                {totals && (
+                  <tr className="bg-gray-50 border-t-2 border-gray-200 font-bold">
+                    <td className="px-4 py-3">合計</td>
+                    <td className="px-4 py-3 text-right text-green-600">{fmt(totals.income)}</td>
+                    <td className="px-4 py-3 text-right text-red-600">{fmt(totals.expense)}</td>
+                    <td className={`px-4 py-3 text-right ${totals.income - totals.expense >= 0 ? 'text-blue-600' : 'text-amber-600'}`}>
+                      {fmt(totals.income - totals.expense)}
+                    </td>
+                    <td className={`px-4 py-3 text-right ${
+                      totalRate === null ? 'text-gray-400' : totalRate < 0 ? 'text-amber-600' : totalRate < 20 ? 'text-yellow-600' : 'text-green-600'
+                    }`}>
+                      {totalRate !== null ? `${totalRate}%` : '-'}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

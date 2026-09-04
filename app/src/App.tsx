@@ -31,8 +31,9 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<MonthlyChartPage />} />
-          <Route path="monthly" element={<MonthlyListPage />} />
+          <Route index element={<MonthlyListPage />} />
+          <Route path="chart" element={<MonthlyChartPage />} />
+          <Route path="monthly" element={<Navigate to="/" replace />} />
           <Route path="trend" element={<AnnualTrendPage />} />
           <Route path="compare" element={<MonthComparePage />} />
           <Route path="settings" element={<SettingsPage />} />

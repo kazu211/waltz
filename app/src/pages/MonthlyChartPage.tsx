@@ -3,6 +3,7 @@ import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import { api } from '../lib/api';
+import { jstDateParts, monthRange } from '../lib/date';
 import type { SummaryByCategoryResponse, SummaryResponse, KakeiboRecord, TransactionType } from '../types';
 
 const COLORS = [
@@ -14,9 +15,9 @@ const COLORS = [
 type CategoryView = 'parent' | 'child';
 
 export default function MonthlyChartPage() {
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const today = jstDateParts();
+  const [year, setYear] = useState(today.year);
+  const [month, setMonth] = useState(today.month);
   const [type, setType] = useState<TransactionType>('expense');
   const [catView, setCatView] = useState<CategoryView>('parent');
   const [catData, setCatData] = useState<SummaryByCategoryResponse | null>(null);
@@ -27,9 +28,7 @@ export default function MonthlyChartPage() {
 
   useEffect(() => {
     setLoading(true);
-    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-    const endDay = new Date(year, month, 0).getDate();
-    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`;
+    const { startDate, endDate } = monthRange(year, month);
     Promise.all([
       api.summaryByCategory(year, month, type),
       api.summary(year, month),
@@ -124,7 +123,7 @@ export default function MonthlyChartPage() {
             onChange={e => setYear(Number(e.target.value))}
             className="px-2 py-1.5 border border-gray-300 rounded text-sm font-bold bg-white"
           >
-            {Array.from({ length: 7 }, (_, i) => now.getFullYear() - 5 + i).map(y => (
+            {Array.from({ length: 7 }, (_, i) => today.year - 5 + i).map(y => (
               <option key={y} value={y}>{y}年</option>
             ))}
           </select>

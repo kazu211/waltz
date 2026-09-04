@@ -16,6 +16,8 @@ const CATEGORY_HEADERS: (keyof CategoryRecord)[] = [
 const MEMBER_HEADERS: (keyof MemberRecord)[] = [
   'id', 'name'
 ];
+/** 日付を扱う基準タイムゾーン（日本時間） */
+const APP_TIME_ZONE = 'Asia/Tokyo';
 
 // =============================================================================
 // エントリーポイント
@@ -61,9 +63,6 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
         break;
       case 'memberList':
         result = handleMemberList();
-        break;
-      case 'scanReceipt':
-        result = handleScanReceipt(body);
         break;
       default:
         result = { success: false, error: `不明なアクション: ${action}` };
@@ -369,88 +368,6 @@ function handleMemberList(): ApiResponse<MemberRecord[]> {
 }
 
 // =============================================================================
-// レシートスキャンハンドラー
-// =============================================================================
-
-function handleScanReceipt(body: ScanReceiptRequest): ApiResponse<ScanReceiptResponse> {
-  if (!body.image || !body.mimeType) {
-    return { success: false, error: 'image と mimeType は必須です' };
-  }
-
-  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-  if (!apiKey) {
-    return { success: false, error: 'GEMINI_API_KEY が設定されていません。GAS のスクリプトプロパティに設定してください。' };
-  }
-
-  const prompt = `このレシート画像から以下の情報をJSON形式で抽出してください。
-- date: 日付（yyyy-MM-dd形式。不明なら空文字）
-- storeName: 店名（不明なら空文字）
-- amount: 合計金額（税込の支払い総額。数値のみ。不明なら0）
-- items: 購入品目のリスト（文字列の配列。読み取れる範囲で）
-
-必ず以下のJSON形式のみを返してください。説明文は不要です:
-{"date":"","storeName":"","amount":0,"items":[]}`;
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-  const payload = {
-    contents: [{
-      parts: [
-        { text: prompt },
-        {
-          inlineData: {
-            mimeType: body.mimeType,
-            data: body.image,
-          },
-        },
-      ],
-    }],
-    generationConfig: {
-      temperature: 0.1,
-      maxOutputTokens: 1024,
-    },
-  };
-
-  const response = UrlFetchApp.fetch(url, {
-    method: 'post',
-    contentType: 'application/json',
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true,
-  });
-
-  const statusCode = response.getResponseCode();
-  if (statusCode !== 200) {
-    const errorBody = response.getContentText();
-    Logger.log(`Gemini API error (${statusCode}): ${errorBody}`);
-    return { success: false, error: `Gemini API エラー (${statusCode})。API キーを確認してください。` };
-  }
-
-  const geminiResult = JSON.parse(response.getContentText());
-  const text = geminiResult?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-
-  // JSON部分を抽出（コードブロック記法に対応）
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    Logger.log(`Gemini response could not be parsed: ${text}`);
-    return { success: false, error: 'レシートの読み取りに失敗しました。画像を確認してください。' };
-  }
-
-  try {
-    const parsed = JSON.parse(jsonMatch[0]);
-    const result: ScanReceiptResponse = {
-      date: typeof parsed.date === 'string' ? parsed.date : '',
-      storeName: typeof parsed.storeName === 'string' ? parsed.storeName : '',
-      amount: typeof parsed.amount === 'number' ? parsed.amount : 0,
-      items: Array.isArray(parsed.items) ? parsed.items.map(String) : [],
-    };
-    return { success: true, data: result };
-  } catch (e) {
-    Logger.log(`JSON parse error: ${e}, text: ${jsonMatch[0]}`);
-    return { success: false, error: 'レシートの解析結果を処理できませんでした。' };
-  }
-}
-
-// =============================================================================
 // バリデーション
 // =============================================================================
 
@@ -614,10 +531,8 @@ function rowToRecord(row: unknown[]): KakeiboRecord {
 
 function formatDate(value: unknown): string {
   if (value instanceof Date) {
-    const y = value.getFullYear();
-    const m = String(value.getMonth() + 1).padStart(2, '0');
-    const d = String(value.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    // スプレッドシートやスクリプトのタイムゾーン設定に関わらず JST 基準で日付を返す
+    return Utilities.formatDate(value, APP_TIME_ZONE, 'yyyy-MM-dd');
   }
   return String(value);
 }
