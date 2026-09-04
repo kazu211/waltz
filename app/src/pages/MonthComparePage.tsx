@@ -103,26 +103,35 @@ export default function MonthComparePage() {
   const categoryCompare = (() => {
     if (!activeCatA || !activeCatB) return [];
     const aggregate = (data: SummaryByCategoryResponse) => {
-      if (catView === 'child') {
-        return data.categories.map(c => ({
-          key: `${c.parentCategory} / ${c.childCategory}`,
-          amount: c.amount,
-        }));
-      }
-      const map: Record<string, number> = {};
+      const map: Record<string, { parent: string; amount: number }> = {};
       for (const c of data.categories) {
-        map[c.parentCategory] = (map[c.parentCategory] ?? 0) + c.amount;
+        const key = catView === 'child' ? `${c.parentCategory} / ${c.childCategory}` : c.parentCategory;
+        if (!map[key]) map[key] = { parent: c.parentCategory, amount: 0 };
+        map[key].amount += c.amount;
       }
-      return Object.entries(map).map(([key, amount]) => ({ key, amount }));
+      return map;
     };
-    const aItems = aggregate(activeCatA);
-    const bItems = aggregate(activeCatB);
-    const allKeys = [...new Set([...aItems.map(x => x.key), ...bItems.map(x => x.key)])];
-    return allKeys.map(key => ({
+    const aMap = aggregate(activeCatA);
+    const bMap = aggregate(activeCatB);
+    const allKeys = [...new Set([...Object.keys(aMap), ...Object.keys(bMap)])];
+    const items = allKeys.map(key => ({
       name: key,
-      a: aItems.find(x => x.key === key)?.amount ?? 0,
-      b: bItems.find(x => x.key === key)?.amount ?? 0,
-    })).sort((x, y) => y.a - x.a);
+      parent: (aMap[key] ?? bMap[key]).parent,
+      a: aMap[key]?.amount ?? 0,
+      b: bMap[key]?.amount ?? 0,
+    }));
+
+    if (catView === 'parent') {
+      return items.sort((x, y) => (y.a - x.a) || (y.b - x.b));
+    }
+    // 子カテゴリは親カテゴリごとにまとめて並べる（親は金額の大きい順）
+    const parentTotal: Record<string, number> = {};
+    for (const it of items) parentTotal[it.parent] = (parentTotal[it.parent] ?? 0) + it.a + it.b;
+    return items.sort((x, y) =>
+      (parentTotal[y.parent] - parentTotal[x.parent]) ||
+      x.parent.localeCompare(y.parent, 'ja') ||
+      (y.a - x.a) || (y.b - x.b),
+    );
   })();
 
   const yearOptions = Array.from({ length: 7 }, (_, i) => now.getFullYear() - 5 + i);
@@ -242,66 +251,49 @@ export default function MonthComparePage() {
             </div>
           </div>
 
-          {/* 構成比較（100%バー） */}
+          {/* 構成比較（金額バー・2ヶ月とも同じ縮尺） */}
           {categoryCompare.length > 0 && (() => {
             const totalA = categoryCompare.reduce((s, d) => s + d.a, 0);
             const totalB = categoryCompare.reduce((s, d) => s + d.b, 0);
+            const maxTotal = Math.max(totalA, totalB);
             const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6'];
+            const renderBar = (key: 'a' | 'b', total: number) => (
+              <div className="flex h-8 rounded-md overflow-hidden bg-gray-100" style={{ width: maxTotal > 0 ? `${(total / maxTotal) * 100}%` : '100%' }}>
+                {categoryCompare.map((d, i) => {
+                  const amount = d[key];
+                  if (amount === 0) return null;
+                  const width = total > 0 ? (amount / total) * 100 : 0;
+                  return (
+                    <div
+                      key={d.name}
+                      className="relative group cursor-default"
+                      style={{ width: `${width}%`, backgroundColor: COLORS[i % COLORS.length] }}
+                    >
+                      {width >= 18 && (
+                        <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white font-medium truncate px-1">
+                          {fmt(amount)}
+                        </span>
+                      )}
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 whitespace-nowrap bg-gray-800 text-white text-xs rounded-md px-3 py-1.5 shadow-lg pointer-events-none">
+                        <p className="font-medium">{d.name}</p>
+                        <p>{fmt(amount)}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
             return (
               <div className="bg-white rounded-lg shadow p-5">
-                <h3 className="text-base font-bold text-gray-800 mb-4">構成比較</h3>
+                <h3 className="text-base font-bold text-gray-800 mb-4">構成比較（金額）</h3>
                 <div className="space-y-3">
                   <div>
                     <p className="text-xs text-gray-500 mb-1">{labelA}（{fmt(totalA)}）</p>
-                    <div className="flex h-8 rounded-md overflow-hidden">
-                      {categoryCompare.map((d, i) => {
-                        const pct = totalA > 0 ? (d.a / totalA) * 100 : 0;
-                        if (pct === 0) return null;
-                        return (
-                          <div
-                            key={d.name}
-                            className="relative group cursor-default"
-                            style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }}
-                          >
-                            {pct >= 8 && (
-                              <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white font-medium truncate px-1">
-                                {pct.toFixed(0)}%
-                              </span>
-                            )}
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 whitespace-nowrap bg-gray-800 text-white text-xs rounded-md px-3 py-1.5 shadow-lg pointer-events-none">
-                              <p className="font-medium">{d.name}</p>
-                              <p>{fmt(d.a)}（{pct.toFixed(1)}%）</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    {renderBar('a', totalA)}
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">{labelB}（{fmt(totalB)}）</p>
-                    <div className="flex h-8 rounded-md overflow-hidden">
-                      {categoryCompare.map((d, i) => {
-                        const pct = totalB > 0 ? (d.b / totalB) * 100 : 0;
-                        if (pct === 0) return null;
-                        return (
-                          <div
-                            key={d.name}
-                            className="relative group cursor-default"
-                            style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }}
-                          >
-                            {pct >= 8 && (
-                              <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white font-medium truncate px-1">
-                                {pct.toFixed(0)}%
-                              </span>
-                            )}
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 whitespace-nowrap bg-gray-800 text-white text-xs rounded-md px-3 py-1.5 shadow-lg pointer-events-none">
-                              <p className="font-medium">{d.name}</p>
-                              <p>{fmt(d.b)}（{pct.toFixed(1)}%）</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    {renderBar('b', totalB)}
                   </div>
                   {/* 凡例 */}
                   <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
@@ -324,48 +316,30 @@ export default function MonthComparePage() {
                 <tr>
                   <th className="px-3 py-3 text-left font-medium text-gray-500">カテゴリ</th>
                   <th className="px-3 py-3 text-right font-medium text-blue-600">{labelA}</th>
-                  <th className="px-3 py-3 text-right font-medium text-blue-400 text-xs">構成比</th>
                   <th className="px-3 py-3 text-right font-medium text-purple-600">{labelB}</th>
-                  <th className="px-3 py-3 text-right font-medium text-purple-400 text-xs">構成比</th>
                   <th className="px-3 py-3 text-right font-medium text-gray-500">差額</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {(() => {
-                  const totalA = categoryCompare.reduce((s, d) => s + d.a, 0);
-                  const totalB = categoryCompare.reduce((s, d) => s + d.b, 0);
-                  return categoryCompare.map(d => {
-                    const diff = d.a - d.b;
-                    const pctA = totalA > 0 ? (d.a / totalA) * 100 : 0;
-                    const pctB = totalB > 0 ? (d.b / totalB) * 100 : 0;
-                    const pctDiff = pctA - pctB;
-                    return (
-                      <tr key={d.name} className="hover:bg-gray-50">
-                        <td className="px-3 py-2.5 font-medium">{d.name}</td>
-                        <td className="px-3 py-2.5 text-right">{fmt(d.a)}</td>
-                        <td className="px-3 py-2.5 text-right text-gray-500 text-xs">{pctA.toFixed(1)}%</td>
-                        <td className="px-3 py-2.5 text-right text-gray-500">{fmt(d.b)}</td>
-                        <td className="px-3 py-2.5 text-right text-gray-500 text-xs">{pctB.toFixed(1)}%</td>
-                        <td className="px-3 py-2.5 text-right">
-                          <div>
-                            {diff === 0 ? (
-                              <span className="text-gray-400">±0</span>
-                            ) : diff > 0 ? (
-                              <span className="text-red-500">↑ {fmt(diff)}</span>
-                            ) : (
-                              <span className="text-green-500">↓ {fmt(Math.abs(diff))}</span>
-                            )}
-                          </div>
-                          {pctDiff !== 0 && (
-                            <div className="text-[10px] text-gray-400">
-                              {pctDiff > 0 ? '+' : ''}{pctDiff.toFixed(1)}pt
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  });
-                })()}
+                {categoryCompare.map(d => {
+                  const diff = d.a - d.b;
+                  return (
+                    <tr key={d.name} className="hover:bg-gray-50">
+                      <td className="px-3 py-2.5 font-medium">{d.name}</td>
+                      <td className="px-3 py-2.5 text-right">{fmt(d.a)}</td>
+                      <td className="px-3 py-2.5 text-right text-gray-500">{fmt(d.b)}</td>
+                      <td className="px-3 py-2.5 text-right">
+                        {diff === 0 ? (
+                          <span className="text-gray-400">±0</span>
+                        ) : diff > 0 ? (
+                          <span className="text-red-500">↑ {fmt(diff)}</span>
+                        ) : (
+                          <span className="text-green-500">↓ {fmt(Math.abs(diff))}</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

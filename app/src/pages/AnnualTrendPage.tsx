@@ -108,6 +108,10 @@ export default function AnnualTrendPage() {
     (acc, m) => ({ income: acc.income + m.income, expense: acc.expense + m.expense }),
     { income: 0, expense: 0 },
   );
+  // 年間貯蓄率 =（年間収入 - 年間支出）/ 年間収入
+  const totalRate = totals && totals.income > 0
+    ? Math.round(((totals.income - totals.expense) / totals.income) * 100)
+    : null;
 
   const allCatNames = (() => {
     if (!activeCatTrend) return [];
@@ -175,7 +179,7 @@ export default function AnnualTrendPage() {
       ) : (
         <div className="space-y-6">
           {totals && (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-white rounded-lg shadow px-4 py-3 text-center">
                 <p className="text-xs text-gray-500">年間収入</p>
                 <p className="text-lg font-bold text-green-600">{fmt(totals.income)}</p>
@@ -188,6 +192,14 @@ export default function AnnualTrendPage() {
                 <p className="text-xs text-gray-500">年間収支</p>
                 <p className={`text-lg font-bold ${totals.income - totals.expense >= 0 ? 'text-blue-600' : 'text-amber-600'}`}>
                   {fmt(totals.income - totals.expense)}
+                </p>
+              </div>
+              <div className="bg-white rounded-lg shadow px-4 py-3 text-center">
+                <p className="text-xs text-gray-500">年間貯蓄率</p>
+                <p className={`text-lg font-bold ${
+                  totalRate === null ? 'text-gray-400' : totalRate < 0 ? 'text-amber-600' : totalRate < 20 ? 'text-yellow-600' : 'text-green-600'
+                }`}>
+                  {totalRate !== null ? `${totalRate}%` : '-'}
                 </p>
               </div>
             </div>
@@ -285,6 +297,21 @@ export default function AnnualTrendPage() {
                     </tr>
                   );
                 })}
+                {totals && (
+                  <tr className="bg-gray-50 border-t-2 border-gray-200 font-bold">
+                    <td className="px-4 py-3">合計</td>
+                    <td className="px-4 py-3 text-right text-green-600">{fmt(totals.income)}</td>
+                    <td className="px-4 py-3 text-right text-red-600">{fmt(totals.expense)}</td>
+                    <td className={`px-4 py-3 text-right ${totals.income - totals.expense >= 0 ? 'text-blue-600' : 'text-amber-600'}`}>
+                      {fmt(totals.income - totals.expense)}
+                    </td>
+                    <td className={`px-4 py-3 text-right ${
+                      totalRate === null ? 'text-gray-400' : totalRate < 0 ? 'text-amber-600' : totalRate < 20 ? 'text-yellow-600' : 'text-green-600'
+                    }`}>
+                      {totalRate !== null ? `${totalRate}%` : '-'}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
