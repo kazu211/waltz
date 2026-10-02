@@ -28,8 +28,6 @@
 - `CreateRequest` / `UpdateRequest` / `DeleteRequest` / `ListRequest`: API リクエスト型
 - `ApiResponse<T>`: API レスポンス型
 - `CategoryRecord`: カテゴリレコード
-- `SummaryRequest` / `SummaryResponse`: 月次サマリー型
-- `SummaryByCategoryRequest` / `SummaryByCategoryResponse` / `CategorySummaryItem`: カテゴリ別集計型
-- `MonthlyTrendRequest` / `MonthlyTrendResponse` / `MonthlyTrendItem`: 月次推移型
+- `SummaryResponse` / `SummaryByCategoryResponse` / `CategorySummaryItem` / `MonthlyTrendResponse` / `MonthlyTrendItem`: 集計結果の型（app 側の集計で使用）
 - `MemberRecord`: メンバーレコード
 - `ActionType`: アクション種別

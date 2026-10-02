@@ -42,9 +42,6 @@ API 仕様は OpenAPI 3.0 形式で記述しています。
 | `delete` | 家計簿レコード削除 | 家計簿 |
 | `list` | 家計簿レコード一覧取得 | 家計簿 |
 | `categoryList` | カテゴリ一覧取得（読み取り専用） | カテゴリ |
-| `summary` | 月次サマリー | 集計 |
-| `summaryByCategory` | カテゴリ別集計 | 集計 |
-| `monthlyTrend` | 月次推移（年間） | 集計 |
 | `memberList` | メンバー一覧取得（読み取り専用） | メンバー |
 
 ## データ構造
@@ -175,30 +172,6 @@ curl -L -X POST "${BASE_URL}?action=delete" \
 curl -L -X POST "${BASE_URL}?action=categoryList" \
   -H "Content-Type: text/plain" \
   -d "{\"authId\": \"${AUTH_ID}\", \"authPassword\": \"${AUTH_PASSWORD}\"}"
-```
-
-### 月次サマリー
-
-```bash
-curl -L -X POST "${BASE_URL}?action=summary" \
-  -H "Content-Type: text/plain" \
-  -d "{\"authId\": \"${AUTH_ID}\", \"authPassword\": \"${AUTH_PASSWORD}\", \"year\": 2026, \"month\": 3}"
-```
-
-### カテゴリ別集計
-
-```bash
-curl -L -X POST "${BASE_URL}?action=summaryByCategory" \
-  -H "Content-Type: text/plain" \
-  -d "{\"authId\": \"${AUTH_ID}\", \"authPassword\": \"${AUTH_PASSWORD}\", \"year\": 2026, \"month\": 3, \"type\": \"expense\"}"
-```
-
-### 月次推移（年間）
-
-```bash
-curl -L -X POST "${BASE_URL}?action=monthlyTrend" \
-  -H "Content-Type: text/plain" \
-  -d "{\"authId\": \"${AUTH_ID}\", \"authPassword\": \"${AUTH_PASSWORD}\", \"year\": 2026}"
 ```
 
 ### メンバー一覧

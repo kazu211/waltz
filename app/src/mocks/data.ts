@@ -2,9 +2,6 @@ import type {
   KakeiboRecord,
   CategoryRecord,
   MemberRecord,
-  SummaryResponse,
-  SummaryByCategoryResponse,
-  MonthlyTrendResponse,
 } from '../types';
 
 export const mockCategories: CategoryRecord[] = [
@@ -49,38 +46,3 @@ export const mockRecords: KakeiboRecord[] = [
   { id: 'r14', date: '2026-02-15', type: 'expense', parentCategory: '住居費', childCategory: '家賃', storeName: '', persons: [], amount: 85000, memo: '' },
   { id: 'r15', date: '2026-02-01', type: 'income', parentCategory: '給与', childCategory: '本業', storeName: '', persons: ['太郎'], amount: 300000, memo: '2月給与' },
 ];
-
-export function getMockSummary(year: number, month: number): SummaryResponse {
-  const records = mockRecords.filter(r => {
-    const prefix = `${year}-${String(month).padStart(2, '0')}`;
-    return r.date.startsWith(prefix);
-  });
-  const income = records.filter(r => r.type === 'income').reduce((s, r) => s + r.amount, 0);
-  const expense = records.filter(r => r.type === 'expense').reduce((s, r) => s + r.amount, 0);
-  return { year, month, income, expense, balance: income - expense };
-}
-
-export function getMockSummaryByCategory(year: number, month: number, type: 'income' | 'expense' = 'expense'): SummaryByCategoryResponse {
-  const prefix = `${year}-${String(month).padStart(2, '0')}`;
-  const records = mockRecords.filter(r => r.date.startsWith(prefix) && r.type === type);
-  const map: Record<string, { parentCategory: string; childCategory: string; amount: number }> = {};
-  for (const r of records) {
-    const key = `${r.parentCategory}::${r.childCategory}`;
-    if (!map[key]) map[key] = { parentCategory: r.parentCategory, childCategory: r.childCategory, amount: 0 };
-    map[key].amount += r.amount;
-  }
-  const categories = Object.values(map).sort((a, b) => b.amount - a.amount);
-  return { year, month, type, categories };
-}
-
-export function getMockMonthlyTrend(year: number): MonthlyTrendResponse {
-  const months = Array.from({ length: 12 }, (_, i) => {
-    const m = i + 1;
-    const prefix = `${year}-${String(m).padStart(2, '0')}`;
-    const records = mockRecords.filter(r => r.date.startsWith(prefix));
-    const income = records.filter(r => r.type === 'income').reduce((s, r) => s + r.amount, 0);
-    const expense = records.filter(r => r.type === 'expense').reduce((s, r) => s + r.amount, 0);
-    return { month: m, income, expense, balance: income - expense };
-  });
-  return { year, months };
-}

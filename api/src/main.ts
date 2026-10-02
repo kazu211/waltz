@@ -55,15 +55,6 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
       case 'categoryList':
         result = handleCategoryList();
         break;
-      case 'summary':
-        result = handleSummary(body);
-        break;
-      case 'summaryByCategory':
-        result = handleSummaryByCategory(body);
-        break;
-      case 'monthlyTrend':
-        result = handleMonthlyTrend(body);
-        break;
       case 'memberList':
         result = handleMemberList();
         break;
@@ -232,7 +223,7 @@ function handleList(body: ListRequest): ApiResponse<KakeiboRecord[]> {
 }
 
 // =============================================================================
-// カテゴリ・集計ハンドラー
+// カテゴリハンドラー
 // =============================================================================
 
 function handleCategoryList(): ApiResponse<CategoryRecord[]> {
@@ -255,117 +246,6 @@ function handleCategoryList(): ApiResponse<CategoryRecord[]> {
   }));
 
   return { success: true, data: categories };
-}
-
-function handleSummary(body: SummaryRequest): ApiResponse<SummaryResponse> {
-  if (!body.year || !body.month) {
-    return { success: false, error: 'year と month は必須です' };
-  }
-
-  const records = getRecordsByMonth(body.year, body.month);
-
-  const income = records
-    .filter(r => r.type === 'income')
-    .reduce((sum, r) => sum + r.amount, 0);
-  const expense = records
-    .filter(r => r.type === 'expense')
-    .reduce((sum, r) => sum + r.amount, 0);
-
-  return {
-    success: true,
-    data: {
-      year: body.year,
-      month: body.month,
-      income,
-      expense,
-      balance: income - expense,
-    },
-  };
-}
-
-function handleSummaryByCategory(body: SummaryByCategoryRequest): ApiResponse<SummaryByCategoryResponse> {
-  if (!body.year || !body.month) {
-    return { success: false, error: 'year と month は必須です' };
-  }
-
-  const type: TransactionType = body.type || 'expense';
-  const records = getRecordsByMonth(body.year, body.month)
-    .filter(r => r.type === type);
-
-  // parentCategory + childCategory をキーにして集計
-  const map: { [key: string]: CategorySummaryItem } = {};
-  for (const r of records) {
-    const key = `${r.parentCategory}::${r.childCategory}`;
-    if (!map[key]) {
-      map[key] = {
-        parentCategory: r.parentCategory,
-        childCategory: r.childCategory,
-        amount: 0,
-      };
-    }
-    map[key].amount += r.amount;
-  }
-
-  const categories = Object.values(map);
-  // 金額の降順でソート
-  categories.sort((a, b) => b.amount - a.amount);
-
-  return {
-    success: true,
-    data: {
-      year: body.year,
-      month: body.month,
-      type,
-      categories,
-    },
-  };
-}
-
-function handleMonthlyTrend(body: MonthlyTrendRequest): ApiResponse<MonthlyTrendResponse> {
-  if (!body.year) {
-    return { success: false, error: 'year は必須です' };
-  }
-
-  const startDate = `${body.year}-01-01`;
-  const endDate = `${body.year}-12-31`;
-
-  const sheet = getSheet();
-  const lastRow = sheet.getLastRow();
-
-  let records: KakeiboRecord[] = [];
-  if (lastRow > 1) {
-    const rows = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
-    records = rows.map(rowToRecord)
-      .filter(r => r.date >= startDate && r.date <= endDate);
-  }
-
-  const months: MonthlyTrendItem[] = [];
-  for (let m = 1; m <= 12; m++) {
-    const prefix = `${body.year}-${String(m).padStart(2, '0')}`;
-    const monthRecords = records.filter(r => r.date.startsWith(prefix));
-
-    const income = monthRecords
-      .filter(r => r.type === 'income')
-      .reduce((sum, r) => sum + r.amount, 0);
-    const expense = monthRecords
-      .filter(r => r.type === 'expense')
-      .reduce((sum, r) => sum + r.amount, 0);
-
-    months.push({
-      month: m,
-      income,
-      expense,
-      balance: income - expense,
-    });
-  }
-
-  return {
-    success: true,
-    data: {
-      year: body.year,
-      months,
-    },
-  };
 }
 
 // =============================================================================
@@ -498,19 +378,6 @@ function getCategorySheet(): GoogleAppsScript.Spreadsheet.Sheet | null {
 function getMemberSheet(): GoogleAppsScript.Spreadsheet.Sheet | null {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   return ss.getSheetByName(MEMBER_SHEET_NAME);
-}
-
-function getRecordsByMonth(year: number, month: number): KakeiboRecord[] {
-  const prefix = `${year}-${String(month).padStart(2, '0')}`;
-  const sheet = getSheet();
-  const lastRow = sheet.getLastRow();
-
-  if (lastRow <= 1) {
-    return [];
-  }
-
-  const rows = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
-  return rows.map(rowToRecord).filter(r => r.date.startsWith(prefix));
 }
 
 function findRowIndexById(sheet: GoogleAppsScript.Spreadsheet.Sheet, id: string): number {
