@@ -5,7 +5,7 @@ import LoginPage from './pages/LoginPage';
 import MonthlyListPage from './pages/MonthlyListPage';
 import MonthlyChartPage from './pages/MonthlyChartPage';
 import AnnualTrendPage from './pages/AnnualTrendPage';
-import MonthComparePage from './pages/MonthComparePage';
+import ComparePage from './pages/ComparePage';
 import SettingsPage from './pages/SettingsPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -35,7 +35,7 @@ export default function App() {
           <Route path="chart" element={<MonthlyChartPage />} />
           <Route path="monthly" element={<Navigate to="/" replace />} />
           <Route path="trend" element={<AnnualTrendPage />} />
-          <Route path="compare" element={<MonthComparePage />} />
+          <Route path="compare" element={<ComparePage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>

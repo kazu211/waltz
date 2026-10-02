@@ -8,7 +8,7 @@ const navItems = [
   { to: '/', label: '月次一覧', icon: '📋' },
   { to: '/chart', label: '月次グラフ', icon: '📈' },
   { to: '/trend', label: '年次推移', icon: '📉' },
-  { to: '/compare', label: '月比較', icon: '🔄' },
+  { to: '/compare', label: '比較', icon: '🔄' },
   { to: '/settings', label: '設定', icon: '⚙️' },
 ];
 
