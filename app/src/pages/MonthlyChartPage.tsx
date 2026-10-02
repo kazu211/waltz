@@ -1,10 +1,11 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { api } from '../lib/api';
-import { jstDateParts, monthRange } from '../lib/date';
-import type { SummaryByCategoryResponse, SummaryResponse, KakeiboRecord, TransactionType } from '../types';
+import { useData } from '../contexts/data-context';
+import { recordsInMonth, filterByPerson, personsOf, summarize, summarizeByCategory } from '../lib/aggregate';
+import { jstDateParts } from '../lib/date';
+import type { SummaryByCategoryResponse, SummaryResponse, TransactionType } from '../types';
 
 const COLORS = [
   '#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6',
@@ -20,59 +21,19 @@ export default function MonthlyChartPage() {
   const [month, setMonth] = useState(today.month);
   const [type, setType] = useState<TransactionType>('expense');
   const [catView, setCatView] = useState<CategoryView>('parent');
-  const [catData, setCatData] = useState<SummaryByCategoryResponse | null>(null);
-  const [summary, setSummary] = useState<SummaryResponse | null>(null);
-  const [records, setRecords] = useState<KakeiboRecord[]>([]);
   const [person, setPerson] = useState<string>('');
-  const [loading, setLoading] = useState(true);
+  const { records: allRecords, initialLoading: loading } = useData();
 
-  useEffect(() => {
-    setLoading(true);
-    const { startDate, endDate } = monthRange(year, month);
-    Promise.all([
-      api.summaryByCategory(year, month, type),
-      api.summary(year, month),
-      api.list({ startDate, endDate }),
-    ]).then(([cat, sum, recs]) => {
-      setCatData(cat);
-      setSummary(sum);
-      setRecords(recs);
-    }).finally(() => setLoading(false));
-  }, [year, month, type]);
+  const records = useMemo(() => recordsInMonth(allRecords, year, month), [allRecords, year, month]);
+  const persons = useMemo(() => personsOf(records), [records]);
 
-  // 使用者一覧を抽出
-  const persons = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of records) {
-      for (const p of r.persons) set.add(p);
-    }
-    return Array.from(set).sort();
-  }, [records]);
-
-  // 使用者フィルタ時はクライアント側で集計
-  const filtered = useMemo(() => {
-    if (!person) return null;
-    const recs = records.filter(r => r.persons.includes(person));
-    const income = recs.filter(r => r.type === 'income').reduce((s, r) => s + r.amount, 0);
-    const expense = recs.filter(r => r.type === 'expense').reduce((s, r) => s + r.amount, 0);
-    const filteredSummary: SummaryResponse = { year, month, income, expense, balance: income - expense };
-
-    const catMap: Record<string, { parentCategory: string; childCategory: string; amount: number }> = {};
-    for (const r of recs) {
-      if (r.type !== type) continue;
-      const key = `${r.parentCategory}/${r.childCategory}`;
-      if (!catMap[key]) catMap[key] = { parentCategory: r.parentCategory, childCategory: r.childCategory, amount: 0 };
-      catMap[key].amount += r.amount;
-    }
-    const filteredCat: SummaryByCategoryResponse = {
-      year, month, type,
-      categories: Object.values(catMap).sort((a, b) => b.amount - a.amount),
-    };
-    return { summary: filteredSummary, catData: filteredCat };
-  }, [person, records, type]);
-
-  const activeSummary = filtered ? filtered.summary : summary;
-  const activeCatData = filtered ? filtered.catData : catData;
+  // 集計は保持している明細からブラウザ側で計算する（使用者フィルタも同じ経路）
+  const activeSummary = useMemo<SummaryResponse>(() => {
+    return { year, month, ...summarize(filterByPerson(records, person)) };
+  }, [records, person, year, month]);
+  const activeCatData = useMemo<SummaryByCategoryResponse>(() => {
+    return { year, month, type, categories: summarizeByCategory(filterByPerson(records, person), type) };
+  }, [records, person, type, year, month]);
 
   const fmt = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

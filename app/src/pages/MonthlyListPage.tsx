@@ -1,49 +1,28 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { api } from '../lib/api';
-import type { KakeiboRecord, CategoryRecord, MemberRecord, CreateRequest, UpdateRequest } from '../types';
+import { useEffect, useState, useMemo } from 'react';
+import { useData } from '../contexts/data-context';
+import { recordsInMonth } from '../lib/aggregate';
+import type { KakeiboRecord, CreateRequest, UpdateRequest } from '../types';
 import RecordFormModal from '../components/RecordFormModal';
 import DeleteConfirmDialog from '../components/DeleteConfirmDialog';
 import CategoryFilter from '../components/CategoryFilter';
 import { catKey, countSelected, type CategoryTree } from '../lib/category';
-import { jstDateParts, monthRange } from '../lib/date';
+import { jstDateParts } from '../lib/date';
 
 export default function MonthlyListPage() {
   const today = jstDateParts();
   const [year, setYear] = useState(today.year);
   const [month, setMonth] = useState(today.month);
-  const [records, setRecords] = useState<KakeiboRecord[]>([]);
-  const [categories, setCategories] = useState<CategoryRecord[]>([]);
-  const [members, setMembers] = useState<MemberRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { records: allRecords, categories, members, initialLoading: loading, createRecord, updateRecord, deleteRecord } = useData();
 
   const [formTarget, setFormTarget] = useState<KakeiboRecord | null | undefined>(undefined); // undefined=閉, null=新規, record=編集
   const [deleteTarget, setDeleteTarget] = useState<KakeiboRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [sortAsc, setSortAsc] = useState(false); // false=降順（新しい順）
   const [catFilter, setCatFilter] = useState<string[]>([]); // 空=すべて
   const [filterOpen, setFilterOpen] = useState<'desktop' | 'mobile' | null>(null);
 
-  const { startDate, endDate } = monthRange(year, month);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [recs, cats, mems] = await Promise.all([
-        api.list({ startDate, endDate }),
-        api.categoryList(),
-        api.memberList(),
-      ]);
-      setRecords(recs);
-      setCategories(cats);
-      setMembers(mems);
-    } catch {
-      // エラーは api.ts 側で throw 済み
-    } finally {
-      setLoading(false);
-    }
-  }, [startDate, endDate]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const records = useMemo(() => recordsInMonth(allRecords, year, month), [allRecords, year, month]);
 
   // 月を切り替えたらカテゴリフィルターをリセット
   useEffect(() => {
@@ -75,25 +54,26 @@ export default function MonthlyListPage() {
 
   const filterCount = countSelected(categoryTree, catFilter);
 
-  // 保存
+  // 保存（成功したらその1行だけ反映され、一覧の読み込み直しはしない）
   const handleSave = async (data: CreateRequest | UpdateRequest) => {
     if ('id' in data && data.id) {
-      await api.update(data as UpdateRequest);
+      await updateRecord(data as UpdateRequest);
     } else {
-      await api.create(data as CreateRequest);
+      await createRecord(data as CreateRequest);
     }
     setFormTarget(undefined);
-    await fetchData();
   };
 
   // 削除
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
+    setDeleteError('');
     try {
-      await api.delete(deleteTarget.id);
+      await deleteRecord(deleteTarget.id);
       setDeleteTarget(null);
-      await fetchData();
+    } catch {
+      setDeleteError('削除に失敗しました。もう一度お試しください');
     } finally {
       setDeleting(false);
     }
@@ -359,8 +339,9 @@ export default function MonthlyListPage() {
         <DeleteConfirmDialog
           message={`${deleteTarget.date} ${deleteTarget.parentCategory} ¥${fmt(deleteTarget.amount)} を削除しますか？`}
           onConfirm={handleDelete}
-          onCancel={() => setDeleteTarget(null)}
+          onCancel={() => { setDeleteTarget(null); setDeleteError(''); }}
           loading={deleting}
+          error={deleteError}
         />
       )}
     </div>

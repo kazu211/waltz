@@ -19,6 +19,9 @@ API 仕様は OpenAPI 3.0 形式で記述しています。
 | リクエスト body | JSON |
 | 認証 | body に `authId` / `authPassword` を含める |
 | URL | `https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec?action={ACTION}` |
+| 日付 | `yyyy-MM-dd`（日本時間基準） |
+| 書き込みの排他 | `create` / `update` / `delete` は `LockService` で1件ずつ順番に処理（最大10秒待機し、待ちきれない場合はエラーを返す） |
+| 実行ログ | 各リクエストの `action`・処理時間（ms）・成否を出力。GAS エディタの「実行数」または `npm run api:logs` で確認できる |
 
 ### レスポンス形式
 

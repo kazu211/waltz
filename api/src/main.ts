@@ -16,16 +16,19 @@ const CATEGORY_HEADERS: (keyof CategoryRecord)[] = [
 const MEMBER_HEADERS: (keyof MemberRecord)[] = [
   'id', 'name'
 ];
-/** 日付を扱う基準タイムゾーン（日本時間） */
-const APP_TIME_ZONE = 'Asia/Tokyo';
+/** JST（UTC+9）のオフセット。日本は夏時間がないため固定値で扱える */
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+/** 書き込みロックの最大待ち時間 */
+const LOCK_TIMEOUT_MS = 10000;
 
 // =============================================================================
 // エントリーポイント
 // =============================================================================
 
 function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.TextOutput {
+  const startedAt = Date.now();
+  const action = e.parameter.action as ActionType | undefined;
   try {
-    const action = e.parameter.action as ActionType | undefined;
     const body = e.postData?.contents ? JSON.parse(e.postData.contents) : {};
 
     // 認証チェック
@@ -38,13 +41,13 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
 
     switch (action) {
       case 'create':
-        result = handleCreate(body);
+        result = withWriteLock(() => handleCreate(body));
         break;
       case 'update':
-        result = handleUpdate(body);
+        result = withWriteLock(() => handleUpdate(body));
         break;
       case 'delete':
-        result = handleDelete(body);
+        result = withWriteLock(() => handleDelete(body));
         break;
       case 'list':
         result = handleList(body);
@@ -68,10 +71,32 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
         result = { success: false, error: `不明なアクション: ${action}` };
     }
 
+    // 実行ログ（「実行数」画面で確認できる）。認証情報を含むため body は出力しない
+    console.log(JSON.stringify({ action, ms: Date.now() - startedAt, success: result.success, error: result.error }));
     return jsonResponse(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : '予期しないエラーが発生しました';
+    console.error(JSON.stringify({ action, ms: Date.now() - startedAt, success: false, error: message }));
     return jsonResponse({ success: false, error: message });
+  }
+}
+
+/**
+ * 書き込み処理を排他実行する。
+ * 行番号の検索から書き込みまでを1件ずつ順番に処理し、
+ * 同時実行で別の行を書き換えてしまう事故を防ぐ。
+ */
+function withWriteLock<T>(handler: () => ApiResponse<T>): ApiResponse<T> {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(LOCK_TIMEOUT_MS)) {
+    return { success: false, error: '保存処理が混み合っています。少し待ってからもう一度保存してください' };
+  }
+  try {
+    const result = handler();
+    SpreadsheetApp.flush();
+    return result;
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -531,8 +556,13 @@ function rowToRecord(row: unknown[]): KakeiboRecord {
 
 function formatDate(value: unknown): string {
   if (value instanceof Date) {
-    // スプレッドシートやスクリプトのタイムゾーン設定に関わらず JST 基準で日付を返す
-    return Utilities.formatDate(value, APP_TIME_ZONE, 'yyyy-MM-dd');
+    // +9時間して UTC として年月日を取り出すと JST の日付になる。
+    // Utilities.formatDate は全行で呼ぶと遅いため純 JS で計算する
+    const jst = new Date(value.getTime() + JST_OFFSET_MS);
+    const y = jst.getUTCFullYear();
+    const m = String(jst.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(jst.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
   return String(value);
 }

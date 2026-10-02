@@ -1,5 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { todayJST } from '../lib/date';
+import { ConnectionError } from '../lib/api';
 import type { KakeiboRecord, CategoryRecord, MemberRecord, TransactionType, CreateRequest, UpdateRequest } from '../types';
 
 interface Props {
@@ -98,7 +99,10 @@ export default function RecordFormModal({ record, categories, members, onSave, o
         await onSave(data);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '保存に失敗しました');
+      // 通信エラーは原因が分かりにくいので定型文にする。入力チェックなど API のエラーはそのまま表示
+      setError(err instanceof ConnectionError || !(err instanceof Error)
+        ? '保存に失敗しました。もう一度保存してください'
+        : err.message);
     } finally {
       setLoading(false);
     }

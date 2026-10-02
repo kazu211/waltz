@@ -47,3 +47,14 @@ export function monthRange(year: number, month: number): { startDate: string; en
   const prefix = `${year}-${pad2(month)}`;
   return { startDate: `${prefix}-01`, endDate: `${prefix}-${pad2(lastDayOfMonth(year, month))}` };
 }
+
+const jstTimeFormatter = new Intl.DateTimeFormat('ja-JP', {
+  timeZone: APP_TIME_ZONE,
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+/** 時刻を JST の HH:mm で返す */
+export function formatTimeJST(date: Date): string {
+  return jstTimeFormatter.format(date);
+}

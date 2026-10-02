@@ -1,6 +1,7 @@
-import { useEffect, useState, useMemo } from 'react';
-import { api } from '../lib/api';
-import { jstDateParts, monthRange } from '../lib/date';
+import { useState, useMemo } from 'react';
+import { useData } from '../contexts/data-context';
+import { recordsInMonth, filterByPerson, personsOf, summarize, summarizeByCategory } from '../lib/aggregate';
+import { jstDateParts } from '../lib/date';
 import type { SummaryResponse, SummaryByCategoryResponse, KakeiboRecord, TransactionType } from '../types';
 
 type CategoryView = 'parent' | 'child';
@@ -13,72 +14,24 @@ export default function MonthComparePage() {
   const [yearB, setYearB] = useState(() => (today.month === 1 ? today.year - 1 : today.year));
   const [monthB, setMonthB] = useState(() => (today.month === 1 ? 12 : today.month - 1));
 
-  const [sumA, setSumA] = useState<SummaryResponse | null>(null);
-  const [sumB, setSumB] = useState<SummaryResponse | null>(null);
-  const [catA, setCatA] = useState<SummaryByCategoryResponse | null>(null);
-  const [catB, setCatB] = useState<SummaryByCategoryResponse | null>(null);
-  const [recordsA, setRecordsA] = useState<KakeiboRecord[]>([]);
-  const [recordsB, setRecordsB] = useState<KakeiboRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-
   const [type, setType] = useState<TransactionType>('expense');
   const [catView, setCatView] = useState<CategoryView>('parent');
   const [person, setPerson] = useState<string>('');
+  const { records: allRecords, initialLoading: loading } = useData();
 
-  useEffect(() => {
-    setLoading(true);
-    const { startDate: startA, endDate: endA } = monthRange(yearA, monthA);
-    const { startDate: startB, endDate: endB } = monthRange(yearB, monthB);
-    Promise.all([
-      api.summary(yearA, monthA),
-      api.summary(yearB, monthB),
-      api.summaryByCategory(yearA, monthA, type),
-      api.summaryByCategory(yearB, monthB, type),
-      api.list({ startDate: startA, endDate: endA }),
-      api.list({ startDate: startB, endDate: endB }),
-    ]).then(([sA, sB, cA, cB, rA, rB]) => {
-      setSumA(sA); setSumB(sB);
-      setCatA(cA); setCatB(cB);
-      setRecordsA(rA); setRecordsB(rB);
-    }).finally(() => setLoading(false));
-  }, [yearA, monthA, yearB, monthB, type]);
+  const recordsA = useMemo(() => recordsInMonth(allRecords, yearA, monthA), [allRecords, yearA, monthA]);
+  const recordsB = useMemo(() => recordsInMonth(allRecords, yearB, monthB), [allRecords, yearB, monthB]);
+  const persons = useMemo(() => personsOf([...recordsA, ...recordsB]), [recordsA, recordsB]);
 
-  const persons = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of [...recordsA, ...recordsB]) {
-      for (const p of r.persons) set.add(p);
-    }
-    return Array.from(set).sort();
-  }, [recordsA, recordsB]);
-
-  const filtered = useMemo(() => {
-    if (!person) return null;
-    const compute = (recs: KakeiboRecord[], y: number, m: number) => {
-      const f = recs.filter(r => r.persons.includes(person));
-      const income = f.filter(r => r.type === 'income').reduce((s, r) => s + r.amount, 0);
-      const expense = f.filter(r => r.type === 'expense').reduce((s, r) => s + r.amount, 0);
-      const sum: SummaryResponse = { year: y, month: m, income, expense, balance: income - expense };
-      const catMap: Record<string, { parentCategory: string; childCategory: string; amount: number }> = {};
-      for (const r of f.filter(r => r.type === type)) {
-        const key = `${r.parentCategory}/${r.childCategory}`;
-        if (!catMap[key]) catMap[key] = { parentCategory: r.parentCategory, childCategory: r.childCategory, amount: 0 };
-        catMap[key].amount += r.amount;
-      }
-      const cat: SummaryByCategoryResponse = {
-        year: y, month: m, type,
-        categories: Object.values(catMap).sort((a, b) => b.amount - a.amount),
-      };
-      return { sum, cat };
-    };
-    const a = compute(recordsA, yearA, monthA);
-    const b = compute(recordsB, yearB, monthB);
-    return { sumA: a.sum, sumB: b.sum, catA: a.cat, catB: b.cat };
-  }, [person, recordsA, recordsB, type, yearA, monthA, yearB, monthB]);
-
-  const activeSumA = filtered ? filtered.sumA : sumA;
-  const activeSumB = filtered ? filtered.sumB : sumB;
-  const activeCatA = filtered ? filtered.catA : catA;
-  const activeCatB = filtered ? filtered.catB : catB;
+  // 集計は保持している明細からブラウザ側で計算する（使用者フィルタも同じ経路）
+  const compute = (recs: KakeiboRecord[], y: number, m: number) => {
+    const target = filterByPerson(recs, person);
+    const sum: SummaryResponse = { year: y, month: m, ...summarize(target) };
+    const cat: SummaryByCategoryResponse = { year: y, month: m, type, categories: summarizeByCategory(target, type) };
+    return { sum, cat };
+  };
+  const { sum: activeSumA, cat: activeCatA } = compute(recordsA, yearA, monthA);
+  const { sum: activeSumB, cat: activeCatB } = compute(recordsB, yearB, monthB);
 
   const fmt = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
 
