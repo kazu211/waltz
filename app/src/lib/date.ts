@@ -36,14 +36,13 @@ export function monthOf(date: string): number {
   return Number(date.slice(5, 7));
 }
 
-/** 指定年月の末日 */
-export function lastDayOfMonth(year: number, month: number): number {
-  // UTC で計算するのでローカルタイムゾーンに左右されない
-  return new Date(Date.UTC(year, month, 0)).getUTCDate();
-}
+const jstTimeFormatter = new Intl.DateTimeFormat('ja-JP', {
+  timeZone: APP_TIME_ZONE,
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
-/** 指定年月の期間（yyyy-MM-dd） */
-export function monthRange(year: number, month: number): { startDate: string; endDate: string } {
-  const prefix = `${year}-${pad2(month)}`;
-  return { startDate: `${prefix}-01`, endDate: `${prefix}-${pad2(lastDayOfMonth(year, month))}` };
+/** 時刻を JST の HH:mm で返す */
+export function formatTimeJST(date: Date): string {
+  return jstTimeFormatter.format(date);
 }

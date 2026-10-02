@@ -3,21 +3,14 @@ import type {
   KakeiboRecord,
   CategoryRecord,
   MemberRecord,
-  SummaryResponse,
-  SummaryByCategoryResponse,
-  MonthlyTrendResponse,
   CreateRequest,
   UpdateRequest,
   ListRequest,
-  TransactionType,
 } from '../types';
 import {
   mockRecords,
   mockCategories,
   mockMembers,
-  getMockSummary,
-  getMockSummaryByCategory,
-  getMockMonthlyTrend,
 } from '../mocks/data';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
@@ -32,19 +25,61 @@ function getCredentials(): { authId: string; authPassword: string } {
   return { authId, authPassword };
 }
 
-async function request<T>(action: string, body: Record<string, unknown> = {}): Promise<T> {
-  const { authId, authPassword } = getCredentials();
-  const response = await fetch(`${API_URL}?action=${action}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ authId, authPassword, ...body }),
-    redirect: 'follow',
-  });
-  const json: ApiResponse<T> = await response.json();
+/** 読み込み失敗時の自動リトライ間隔（この回数だけやり直す） */
+const RETRY_DELAYS_MS = [500, 1000, 2000];
+const CONNECTION_ERROR_MESSAGE = 'サーバーとの通信に失敗しました。時間をおいてもう一度お試しください';
+
+/**
+ * サーバーの処理結果を受け取れなかったエラー（通信断や、GAS が JSON ではなくエラーページを返した場合）。
+ * API が返す業務エラー（success: false）とは区別し、こちらだけリトライ対象にする。
+ */
+export class ConnectionError extends Error {}
+
+async function send<T>(action: string, payload: Record<string, unknown>): Promise<T> {
+  let text: string;
+  try {
+    const response = await fetch(`${API_URL}?action=${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload),
+      redirect: 'follow',
+    });
+    text = await response.text();
+  } catch {
+    throw new ConnectionError(CONNECTION_ERROR_MESSAGE);
+  }
+
+  let json: ApiResponse<T>;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    // GAS が混み合っていると JSON ではなく HTML のエラーページが返る
+    throw new ConnectionError(CONNECTION_ERROR_MESSAGE);
+  }
   if (!json.success) {
     throw new Error(json.error ?? '不明なエラーが発生しました');
   }
   return json.data as T;
+}
+
+/**
+ * API 呼び出し。
+ * retry: true は読み込み専用。書き込みは保存済みか判別できないままやり直すと二重登録になり得るため指定しない。
+ */
+async function request<T>(
+  action: string,
+  body: Record<string, unknown> = {},
+  { retry = false }: { retry?: boolean } = {},
+): Promise<T> {
+  const payload = { ...getCredentials(), ...body };
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await send<T>(action, payload);
+    } catch (err) {
+      if (!retry || !(err instanceof ConnectionError) || attempt >= RETRY_DELAYS_MS.length) throw err;
+      await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+    }
+  }
 }
 
 /** ログイン検証（モック時はモック認証、本番時はAPI疎通確認） */
@@ -56,17 +91,8 @@ export async function verifyLogin(authId: string, authPassword: string): Promise
     }
     return;
   }
-  // 本番: memberList で疎通確認（軽量なリクエスト）
-  const response = await fetch(`${API_URL}?action=memberList`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ authId, authPassword }),
-    redirect: 'follow',
-  });
-  const json: ApiResponse = await response.json();
-  if (!json.success) {
-    throw new Error(json.error ?? '認証に失敗しました');
-  }
+  // 本番: memberList で疎通確認（軽量なリクエスト）。入力された認証情報で送る
+  await request('memberList', { authId, authPassword }, { retry: true });
 }
 
 // モック用のインメモリストア
@@ -82,7 +108,7 @@ export const api = {
       records.sort((a, b) => b.date.localeCompare(a.date));
       return records;
     }
-    return request<KakeiboRecord[]>('list', params as Record<string, unknown>);
+    return request<KakeiboRecord[]>('list', params as Record<string, unknown>, { retry: true });
   },
 
   async create(data: CreateRequest): Promise<KakeiboRecord> {
@@ -122,49 +148,12 @@ export const api = {
   // カテゴリ
   async categoryList(): Promise<CategoryRecord[]> {
     if (USE_MOCK) return mockCategories;
-    return request<CategoryRecord[]>('categoryList');
-  },
-
-  // 集計
-  async summary(year: number, month: number): Promise<SummaryResponse> {
-    if (USE_MOCK) return getMockSummary(year, month);
-    return request<SummaryResponse>('summary', { year, month });
-  },
-
-  async summaryByCategory(year: number, month: number, type?: TransactionType): Promise<SummaryByCategoryResponse> {
-    if (USE_MOCK) return getMockSummaryByCategory(year, month, type ?? 'expense');
-    return request<SummaryByCategoryResponse>('summaryByCategory', { year, month, type });
-  },
-
-  async monthlyTrend(year: number): Promise<MonthlyTrendResponse> {
-    if (USE_MOCK) return getMockMonthlyTrend(year);
-    return request<MonthlyTrendResponse>('monthlyTrend', { year });
-  },
-
-  /** カテゴリ別の年次推移（12ヶ月分の summaryByCategory を集約） */
-  async categoryMonthlyTrend(year: number, type: TransactionType): Promise<{
-    months: { month: number; categories: { parentCategory: string; amount: number }[] }[];
-  }> {
-    const results = await Promise.all(
-      Array.from({ length: 12 }, (_, i) => this.summaryByCategory(year, i + 1, type)),
-    );
-    return {
-      months: results.map((r, i) => {
-        const map: Record<string, number> = {};
-        for (const c of r.categories) {
-          map[c.parentCategory] = (map[c.parentCategory] ?? 0) + c.amount;
-        }
-        return {
-          month: i + 1,
-          categories: Object.entries(map).map(([parentCategory, amount]) => ({ parentCategory, amount })),
-        };
-      }),
-    };
+    return request<CategoryRecord[]>('categoryList', {}, { retry: true });
   },
 
   // メンバー
   async memberList(): Promise<MemberRecord[]> {
     if (USE_MOCK) return mockMembers;
-    return request<MemberRecord[]>('memberList');
+    return request<MemberRecord[]>('memberList', {}, { retry: true });
   },
 };

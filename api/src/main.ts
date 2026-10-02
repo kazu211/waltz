@@ -16,16 +16,19 @@ const CATEGORY_HEADERS: (keyof CategoryRecord)[] = [
 const MEMBER_HEADERS: (keyof MemberRecord)[] = [
   'id', 'name'
 ];
-/** 日付を扱う基準タイムゾーン（日本時間） */
-const APP_TIME_ZONE = 'Asia/Tokyo';
+/** JST（UTC+9）のオフセット。日本は夏時間がないため固定値で扱える */
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+/** 書き込みロックの最大待ち時間 */
+const LOCK_TIMEOUT_MS = 10000;
 
 // =============================================================================
 // エントリーポイント
 // =============================================================================
 
 function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.TextOutput {
+  const startedAt = Date.now();
+  const action = e.parameter.action as ActionType | undefined;
   try {
-    const action = e.parameter.action as ActionType | undefined;
     const body = e.postData?.contents ? JSON.parse(e.postData.contents) : {};
 
     // 認証チェック
@@ -38,28 +41,19 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
 
     switch (action) {
       case 'create':
-        result = handleCreate(body);
+        result = withWriteLock(() => handleCreate(body));
         break;
       case 'update':
-        result = handleUpdate(body);
+        result = withWriteLock(() => handleUpdate(body));
         break;
       case 'delete':
-        result = handleDelete(body);
+        result = withWriteLock(() => handleDelete(body));
         break;
       case 'list':
         result = handleList(body);
         break;
       case 'categoryList':
         result = handleCategoryList();
-        break;
-      case 'summary':
-        result = handleSummary(body);
-        break;
-      case 'summaryByCategory':
-        result = handleSummaryByCategory(body);
-        break;
-      case 'monthlyTrend':
-        result = handleMonthlyTrend(body);
         break;
       case 'memberList':
         result = handleMemberList();
@@ -68,10 +62,32 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
         result = { success: false, error: `不明なアクション: ${action}` };
     }
 
+    // 実行ログ（「実行数」画面で確認できる）。認証情報を含むため body は出力しない
+    console.log(JSON.stringify({ action, ms: Date.now() - startedAt, success: result.success, error: result.error }));
     return jsonResponse(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : '予期しないエラーが発生しました';
+    console.error(JSON.stringify({ action, ms: Date.now() - startedAt, success: false, error: message }));
     return jsonResponse({ success: false, error: message });
+  }
+}
+
+/**
+ * 書き込み処理を排他実行する。
+ * 行番号の検索から書き込みまでを1件ずつ順番に処理し、
+ * 同時実行で別の行を書き換えてしまう事故を防ぐ。
+ */
+function withWriteLock<T>(handler: () => ApiResponse<T>): ApiResponse<T> {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(LOCK_TIMEOUT_MS)) {
+    return { success: false, error: '保存処理が混み合っています。少し待ってからもう一度保存してください' };
+  }
+  try {
+    const result = handler();
+    SpreadsheetApp.flush();
+    return result;
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -207,7 +223,7 @@ function handleList(body: ListRequest): ApiResponse<KakeiboRecord[]> {
 }
 
 // =============================================================================
-// カテゴリ・集計ハンドラー
+// カテゴリハンドラー
 // =============================================================================
 
 function handleCategoryList(): ApiResponse<CategoryRecord[]> {
@@ -230,117 +246,6 @@ function handleCategoryList(): ApiResponse<CategoryRecord[]> {
   }));
 
   return { success: true, data: categories };
-}
-
-function handleSummary(body: SummaryRequest): ApiResponse<SummaryResponse> {
-  if (!body.year || !body.month) {
-    return { success: false, error: 'year と month は必須です' };
-  }
-
-  const records = getRecordsByMonth(body.year, body.month);
-
-  const income = records
-    .filter(r => r.type === 'income')
-    .reduce((sum, r) => sum + r.amount, 0);
-  const expense = records
-    .filter(r => r.type === 'expense')
-    .reduce((sum, r) => sum + r.amount, 0);
-
-  return {
-    success: true,
-    data: {
-      year: body.year,
-      month: body.month,
-      income,
-      expense,
-      balance: income - expense,
-    },
-  };
-}
-
-function handleSummaryByCategory(body: SummaryByCategoryRequest): ApiResponse<SummaryByCategoryResponse> {
-  if (!body.year || !body.month) {
-    return { success: false, error: 'year と month は必須です' };
-  }
-
-  const type: TransactionType = body.type || 'expense';
-  const records = getRecordsByMonth(body.year, body.month)
-    .filter(r => r.type === type);
-
-  // parentCategory + childCategory をキーにして集計
-  const map: { [key: string]: CategorySummaryItem } = {};
-  for (const r of records) {
-    const key = `${r.parentCategory}::${r.childCategory}`;
-    if (!map[key]) {
-      map[key] = {
-        parentCategory: r.parentCategory,
-        childCategory: r.childCategory,
-        amount: 0,
-      };
-    }
-    map[key].amount += r.amount;
-  }
-
-  const categories = Object.values(map);
-  // 金額の降順でソート
-  categories.sort((a, b) => b.amount - a.amount);
-
-  return {
-    success: true,
-    data: {
-      year: body.year,
-      month: body.month,
-      type,
-      categories,
-    },
-  };
-}
-
-function handleMonthlyTrend(body: MonthlyTrendRequest): ApiResponse<MonthlyTrendResponse> {
-  if (!body.year) {
-    return { success: false, error: 'year は必須です' };
-  }
-
-  const startDate = `${body.year}-01-01`;
-  const endDate = `${body.year}-12-31`;
-
-  const sheet = getSheet();
-  const lastRow = sheet.getLastRow();
-
-  let records: KakeiboRecord[] = [];
-  if (lastRow > 1) {
-    const rows = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
-    records = rows.map(rowToRecord)
-      .filter(r => r.date >= startDate && r.date <= endDate);
-  }
-
-  const months: MonthlyTrendItem[] = [];
-  for (let m = 1; m <= 12; m++) {
-    const prefix = `${body.year}-${String(m).padStart(2, '0')}`;
-    const monthRecords = records.filter(r => r.date.startsWith(prefix));
-
-    const income = monthRecords
-      .filter(r => r.type === 'income')
-      .reduce((sum, r) => sum + r.amount, 0);
-    const expense = monthRecords
-      .filter(r => r.type === 'expense')
-      .reduce((sum, r) => sum + r.amount, 0);
-
-    months.push({
-      month: m,
-      income,
-      expense,
-      balance: income - expense,
-    });
-  }
-
-  return {
-    success: true,
-    data: {
-      year: body.year,
-      months,
-    },
-  };
 }
 
 // =============================================================================
@@ -475,19 +380,6 @@ function getMemberSheet(): GoogleAppsScript.Spreadsheet.Sheet | null {
   return ss.getSheetByName(MEMBER_SHEET_NAME);
 }
 
-function getRecordsByMonth(year: number, month: number): KakeiboRecord[] {
-  const prefix = `${year}-${String(month).padStart(2, '0')}`;
-  const sheet = getSheet();
-  const lastRow = sheet.getLastRow();
-
-  if (lastRow <= 1) {
-    return [];
-  }
-
-  const rows = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
-  return rows.map(rowToRecord).filter(r => r.date.startsWith(prefix));
-}
-
 function findRowIndexById(sheet: GoogleAppsScript.Spreadsheet.Sheet, id: string): number {
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return -1;
@@ -531,8 +423,13 @@ function rowToRecord(row: unknown[]): KakeiboRecord {
 
 function formatDate(value: unknown): string {
   if (value instanceof Date) {
-    // スプレッドシートやスクリプトのタイムゾーン設定に関わらず JST 基準で日付を返す
-    return Utilities.formatDate(value, APP_TIME_ZONE, 'yyyy-MM-dd');
+    // +9時間して UTC として年月日を取り出すと JST の日付になる。
+    // Utilities.formatDate は全行で呼ぶと遅いため純 JS で計算する
+    const jst = new Date(value.getTime() + JST_OFFSET_MS);
+    const y = jst.getUTCFullYear();
+    const m = String(jst.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(jst.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
   return String(value);
 }

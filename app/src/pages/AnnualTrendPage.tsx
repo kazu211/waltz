@@ -1,98 +1,36 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   ComposedChart, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar,
 } from 'recharts';
-import { api } from '../lib/api';
-import { jstDateParts, monthOf } from '../lib/date';
-import type { MonthlyTrendResponse, KakeiboRecord, TransactionType } from '../types';
+import { useData } from '../contexts/data-context';
+import { recordsInYear, filterByPerson, personsOf, monthlyTrend, categoryMonthlyTrend } from '../lib/aggregate';
+import { jstDateParts } from '../lib/date';
+import type { MonthlyTrendResponse, TransactionType } from '../types';
 
 const CAT_COLORS = [
   '#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6',
   '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6',
 ];
 
-type CatTrendData = { months: { month: number; categories: { parentCategory: string; amount: number }[] }[] };
-
 export default function AnnualTrendPage() {
   const today = jstDateParts();
   const [year, setYear] = useState(today.year);
-  const [data, setData] = useState<MonthlyTrendResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-
   const [catType, setCatType] = useState<TransactionType>('expense');
-  const [catTrend, setCatTrend] = useState<CatTrendData | null>(null);
-  const [catLoading, setCatLoading] = useState(true);
-
-  const [expenseTrend, setExpenseTrend] = useState<CatTrendData | null>(null);
-  const [expenseLoading, setExpenseLoading] = useState(true);
-
-  const [records, setRecords] = useState<KakeiboRecord[]>([]);
   const [person, setPerson] = useState<string>('');
+  const { records: allRecords, initialLoading: loading } = useData();
 
-  useEffect(() => {
-    setLoading(true);
-    const startDate = `${year}-01-01`;
-    const endDate = `${year}-12-31`;
-    Promise.all([
-      api.monthlyTrend(year),
-      api.list({ startDate, endDate }),
-    ]).then(([trend, recs]) => {
-      setData(trend);
-      setRecords(recs);
-    }).finally(() => setLoading(false));
-  }, [year]);
+  const records = useMemo(() => recordsInYear(allRecords, year), [allRecords, year]);
+  const persons = useMemo(() => personsOf(records), [records]);
 
-  useEffect(() => {
-    setCatLoading(true);
-    api.categoryMonthlyTrend(year, catType)
-      .then(setCatTrend)
-      .finally(() => setCatLoading(false));
-  }, [year, catType]);
-
-  useEffect(() => {
-    setExpenseLoading(true);
-    api.categoryMonthlyTrend(year, 'expense')
-      .then(setExpenseTrend)
-      .finally(() => setExpenseLoading(false));
-  }, [year]);
-
-  const persons = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of records) for (const p of r.persons) set.add(p);
-    return Array.from(set).sort();
-  }, [records]);
-
-  const personData = useMemo(() => {
-    if (!person) return null;
-    const filtered = records.filter(r => r.persons.includes(person));
-
-    const months = Array.from({ length: 12 }, (_, i) => {
-      const m = i + 1;
-      const mRecs = filtered.filter(r => monthOf(r.date) === m);
-      const income = mRecs.filter(r => r.type === 'income').reduce((s, r) => s + r.amount, 0);
-      const expense = mRecs.filter(r => r.type === 'expense').reduce((s, r) => s + r.amount, 0);
-      return { month: m, income, expense, balance: income - expense };
-    });
-    const trend: MonthlyTrendResponse = { year, months };
-
-    const buildCatTrend = (tt: TransactionType): CatTrendData => ({
-      months: months.map(m => {
-        const mRecs = filtered.filter(r => monthOf(r.date) === m.month && r.type === tt);
-        const catMap: Record<string, number> = {};
-        for (const r of mRecs) catMap[r.parentCategory] = (catMap[r.parentCategory] ?? 0) + r.amount;
-        return { month: m.month, categories: Object.entries(catMap).map(([parentCategory, amount]) => ({ parentCategory, amount })) };
-      }),
-    });
-
-    return { trend, catTrend: buildCatTrend(catType), expenseTrend: buildCatTrend('expense') };
-  }, [person, records, year, catType]);
-
-  const activeData = personData ? personData.trend : data;
-  const activeCatTrend = personData ? personData.catTrend : catTrend;
-  const activeExpenseTrend = personData ? personData.expenseTrend : expenseTrend;
-  const activeCatLoading = person ? false : catLoading;
-  const activeExpenseLoading = person ? false : expenseLoading;
+  // 集計は保持している明細からブラウザ側で計算する（使用者フィルタも同じ経路）
+  const targetRecords = useMemo(() => filterByPerson(records, person), [records, person]);
+  const activeData = useMemo<MonthlyTrendResponse>(
+    () => ({ year, months: monthlyTrend(targetRecords) }),
+    [targetRecords, year],
+  );
+  const activeCatTrend = useMemo(() => ({ months: categoryMonthlyTrend(targetRecords, catType) }), [targetRecords, catType]);
+  const activeExpenseTrend = useMemo(() => ({ months: categoryMonthlyTrend(targetRecords, 'expense') }), [targetRecords]);
 
   const fmt = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -226,9 +164,7 @@ export default function AnnualTrendPage() {
 
           <div className="bg-white rounded-lg shadow p-5">
             <h3 className="text-base font-bold text-gray-800 mb-4">支出カテゴリ構成</h3>
-            {activeExpenseLoading ? (
-              <div className="text-center py-8 text-gray-500">読み込み中...</div>
-            ) : expenseCatNames.length === 0 ? (
+            {expenseCatNames.length === 0 ? (
               <p className="text-center text-gray-400 py-8">データがありません</p>
             ) : (
               <ResponsiveContainer width="100%" height={350}>
@@ -254,9 +190,7 @@ export default function AnnualTrendPage() {
                 <button onClick={() => setCatType('income')} className={`px-3 py-1 text-xs rounded-full border transition-colors ${catType === 'income' ? 'bg-green-100 border-green-400 text-green-700' : 'bg-white border-gray-300 text-gray-600'}`}>収入</button>
               </div>
             </div>
-            {activeCatLoading ? (
-              <div className="text-center py-8 text-gray-500">読み込み中...</div>
-            ) : allCatNames.length === 0 ? (
+            {allCatNames.length === 0 ? (
               <p className="text-center text-gray-400 py-8">データがありません</p>
             ) : (
               <ResponsiveContainer width="100%" height={350}>

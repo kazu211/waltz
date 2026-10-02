@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/data-context';
+import { formatTimeJST } from '../lib/date';
 
 const navItems = [
   { to: '/', label: '月次一覧', icon: '📋' },
   { to: '/chart', label: '月次グラフ', icon: '📈' },
   { to: '/trend', label: '年次推移', icon: '📉' },
-  { to: '/compare', label: '月比較', icon: '🔄' },
+  { to: '/compare', label: '比較', icon: '🔄' },
   { to: '/settings', label: '設定', icon: '⚙️' },
 ];
 
 export default function Layout() {
   const { logout } = useAuth();
+  const { refresh, refreshing, lastUpdated, error } = useData();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -24,17 +27,30 @@ export default function Layout() {
             Waltz
           </h1>
 
-          {/* モバイルメニューボタン */}
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="md:hidden p-2 text-gray-600 hover:text-gray-900"
-            aria-label="メニュー"
-          >
-            {menuOpen ? '✕' : '☰'}
-          </button>
+          <div className="flex items-center gap-1 md:order-last">
+            {/* 更新ボタン: スプレッドシートから全データを取り直す */}
+            <button
+              onClick={() => refresh()}
+              disabled={refreshing}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-md text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors disabled:opacity-60"
+              title="最新のデータを読み込む"
+            >
+              <span className={`inline-block text-base leading-none ${refreshing ? 'animate-spin' : ''}`}>↻</span>
+              <span>{refreshing ? '更新中...' : lastUpdated ? `最終更新 ${formatTimeJST(lastUpdated)}` : '更新'}</span>
+            </button>
+
+            {/* モバイルメニューボタン */}
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="md:hidden p-2 text-gray-600 hover:text-gray-900"
+              aria-label="メニュー"
+            >
+              {menuOpen ? '✕' : '☰'}
+            </button>
+          </div>
 
           {/* デスクトップナビ */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden md:flex md:ml-auto items-center gap-1">
             {navItems.map(item => (
               <NavLink
                 key={item.to}
@@ -92,6 +108,21 @@ export default function Layout() {
 
       {/* メインコンテンツ */}
       <main className="max-w-5xl mx-auto px-4 py-6">
+        {error && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <span>
+              データの読み込みに失敗しました。
+              {lastUpdated && `表示中のデータは ${formatTimeJST(lastUpdated)} 時点のものです。`}
+            </span>
+            <button
+              onClick={() => refresh()}
+              disabled={refreshing}
+              className="shrink-0 rounded-md border border-red-300 bg-white px-3 py-1 text-xs font-medium hover:bg-red-100 disabled:opacity-60"
+            >
+              再読み込み
+            </button>
+          </div>
+        )}
         <Outlet />
       </main>
     </div>

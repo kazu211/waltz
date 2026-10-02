@@ -1,21 +1,12 @@
-import { useEffect, useState } from 'react';
-import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import type { MemberRecord, CategoryRecord } from '../types';
+import { useData } from '../contexts/data-context';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
 
 export default function SettingsPage() {
   const { logout } = useAuth();
-  const [members, setMembers] = useState<MemberRecord[]>([]);
-  const [categories, setCategories] = useState<CategoryRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    Promise.all([api.memberList(), api.categoryList()])
-      .then(([m, c]) => { setMembers(m); setCategories(c); })
-      .finally(() => setLoading(false));
-  }, []);
+  // カテゴリ・メンバーはアプリ起動時に取得したものを使う
+  const { members, categories, initialLoading: loading } = useData();
 
   // カテゴリを種別→親カテゴリでグループ化
   const grouped = categories.reduce<Record<string, Record<string, string[]>>>((acc, c) => {
